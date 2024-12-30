@@ -1,15 +1,23 @@
 import winsound
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-import re
 from threading import Thread
 from commentVideo import CommentVideoGenerator
-import tkinter as tk
-from tkinter import ttk, messagebox
 import requests
 from bs4 import BeautifulSoup
-import os
 from os.path import getsize
+import tkinter as tk
+from tkinter import filedialog, ttk, messagebox
+from PIL import Image, ImageDraw, ImageFont
+import os
+import re
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import pyaudio
+import wave
+from pydub import AudioSegment
+from pydub.silence import split_on_silence, detect_nonsilent
+import time
 class DataCollectorGUI:
     def __init__(self, root):
         self.root = root
@@ -156,8 +164,18 @@ class DataCollectorGUI:
                 self.update_status("이미지를 찾을 수 없습니다.")
                 return
 
-            # Images 디렉토리가 없으면 생성
-            os.makedirs("Images", exist_ok=True)
+            # 기본 저장 경로 설정
+            base_path = self.save_path.get()
+            image_path = f"{base_path}/Images"
+
+            # 전체 경로가 존재하지 않으면 생성
+            try:
+                os.makedirs(base_path, exist_ok=True)
+                os.makedirs(image_path, exist_ok=True)
+                self.update_status(f"저장 경로 생성: {image_path}")
+            except Exception as e:
+                self.update_status(f"경로 생성 중 오류 발생: {str(e)}")
+                return
 
             for li in image_download_contents:
                 img_tag = li.find('a', href=True)
@@ -167,17 +185,18 @@ class DataCollectorGUI:
                 img_url = img_tag['href']
                 savename = img_url.split("no=")[2]
                 headers['Referer'] = url
-                base_path = self.save_path.get()
+
                 try:
                     response = requests.get(img_url, headers=headers)
-                    path =  f"{base_path}/Images/{savename}"
+                    path = os.path.join(image_path, savename)
 
                     file_size = len(response.content)
 
                     if os.path.isfile(path):
                         if getsize(path) != file_size:
+                            new_path = os.path.join(image_path, f"[1]{savename}")
                             self.update_status(f"다운로드 중: {savename} (다른 크기)")
-                            with open(f"{base_path}/Images/[1]{savename}", "wb") as file:
+                            with open(new_path, "wb") as file:
                                 file.write(response.content)
                         else:
                             self.update_status(f"건너뜀: {savename} (이미 존재)")
@@ -187,7 +206,7 @@ class DataCollectorGUI:
                             file.write(response.content)
 
                 except Exception as e:
-                    self.update_status(f"오류 발생: {str(e)}")
+                    self.update_status(f"이미지 다운로드 중 오류 발생: {str(e)}")
 
             self.update_status("이미지 다운로드 완료!")
 
@@ -196,8 +215,205 @@ class DataCollectorGUI:
 
         finally:
             self.progress['value'] = 90  # 프로그레스바 업데이트
+
+    def generate_subtitles(self):
+        try:
+            # Define input and output paths
+            input_file = f"{self.save_path.get()}/txt/content.txt"
+            output_folder = f"{self.save_path.get()}/voice"
+            font_size = 30  # Default font size, you can make this configurable
+
+            if not os.path.exists(input_file):
+                messagebox.showerror("오류", "content.txt 파일을 찾을 수 없습니다.")
+                return
+
+            # Create output directory if it doesn't exist
+            os.makedirs(output_folder, exist_ok=True)
+
+            try:
+                font = ImageFont.truetype("malgun.ttf", font_size)  # 맑은 고딕
+            except IOError:
+                font = ImageFont.load_default()
+
+            with open(input_file, 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+
+            total_lines = len([line for line in lines if line.strip()])
+            current_line = 0
+
+            for i, line in enumerate(lines):
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Skip lines that contain only numbers
+                if line.replace(' ', '').isdigit():
+                    self.update_status(f"숫자로만 된 줄 건너뜀: {line}")
+                    continue
+
+                # Create temporary image to calculate text size
+                temp_image = Image.new('RGB', (100, 100), color=(192, 192, 192))
+                temp_draw = ImageDraw.Draw(temp_image)
+                bbox = temp_draw.textbbox((0, 0), line, font=font)
+
+                # Calculate actual image dimensions
+                width = bbox[2] - bbox[0]
+                height = bbox[3] - bbox[1]
+
+                # Create actual image
+                image = Image.new('RGB', (width + 20, height + 30), color=(255, 255, 255))
+                draw = ImageDraw.Draw(image)
+                draw.text((10, 10), line, font=font, fill=(0, 0, 102))
+
+                # Save image
+                sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]  # Limit filename length
+                output_path = os.path.join(output_folder, f'subtitle_{i + 1}_{sanitized_line}.png')
+                image.save(output_path)
+
+                current_line += 1
+                self.progress['value'] = (current_line / total_lines) * 100
+                self.update_status(f"자막 생성 중... ({current_line}/{total_lines})")
+                self.root.update()
+
+            self.update_status("자막 생성이 완료되었습니다!")
+
+        except Exception as e:
+            self.update_status(f"자막 생성 중 오류 발생: {str(e)}")
+            messagebox.showerror("오류", f"자막 생성 중 오류가 발생했습니다: {str(e)}")
+
+    def generate_tts(self):
+        try:
+            # Define input and output paths
+            input_file = f"{self.save_path.get()}/txt/recontent.txt"
+            output_folder = f"{self.save_path.get()}/voice"
+
+            if not os.path.exists(input_file):
+                messagebox.showerror("오류", "recontent.txt 파일을 찾을 수 없습니다.")
+                return
+
+            # Create output directory if it doesn't exist
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Initialize Chrome driver
+            options = webdriver.ChromeOptions()
+            driver = webdriver.Chrome(options=options)
+            driver.get('https://papago.naver.com/?sk=ko&tk=en')
+
+            # Read sentences from recontent.txt
+            with open(input_file, 'r', encoding='utf-8') as file:
+                sentences = file.read().split('\n')
+
+            # Initialize PyAudio
+            p = pyaudio.PyAudio()
+            time.sleep(3)  # Wait for page to load
+
+            # Audio recording parameters
+            CHUNK = 1024
+            FORMAT = pyaudio.paInt16
+            CHANNELS = 2
+            RATE = 44100
+            CHARS_PER_SECOND = 7
+            ADDITIONAL_DELAY = 1.5
+
+            total_sentences = len([s for s in sentences if s.strip()])
+            current_sentence = 0
+
+            for i, sentence in enumerate(sentences, start=1):
+                if not sentence.strip():
+                    continue
+
+                # Find and clear input box
+                input_box = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="txtSource"]')))
+                input_box.clear()
+                input_box.send_keys(sentence)
+                time.sleep(2)
+
+                # Calculate recording duration
+                RECORD_SECONDS = len(sentence) / CHARS_PER_SECOND + ADDITIONAL_DELAY
+                frames = []
+
+                # Click TTS button
+                button = driver.find_element(By.XPATH, '//*[@id="btn-toolbar-source"]/span[1]')
+                button.click()
+
+                # Record audio
+                stream = p.open(format=FORMAT,
+                                channels=CHANNELS,
+                                rate=RATE,
+                                input=True,
+                                frames_per_buffer=CHUNK)
+
+                for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+                    data = stream.read(CHUNK)
+                    frames.append(data)
+
+                stream.stop_stream()
+                stream.close()
+
+                # Clean sentence for filename
+                cleaned_sentence = ''.join(e for e in sentence if e.isalnum())
+                if len(cleaned_sentence) > 15:
+                    cleaned_sentence = cleaned_sentence[:15]
+
+                # Save audio files
+                temp_filename = os.path.join(output_folder, f"temp_tts{i}_{cleaned_sentence}.wav")
+                final_filename = os.path.join(output_folder, f"tts{i}_{cleaned_sentence}.wav")
+
+                # Write temporary WAV file
+                wf = wave.open(temp_filename, 'wb')
+                wf.setnchannels(CHANNELS)
+                wf.setsampwidth(p.get_sample_size(FORMAT))
+                wf.setframerate(RATE)
+                wf.writeframes(b''.join(frames))
+                wf.close()
+
+                # Process audio (remove silence)
+                sound = AudioSegment.from_wav(temp_filename)
+                chunks = split_on_silence(sound,
+                                          min_silence_len=500,
+                                          silence_thresh=-40
+                                          )
+
+                # Combine chunks with short silence between them
+                final_audio = AudioSegment.empty()
+                for chunk in chunks:
+                    final_audio += chunk + AudioSegment.silent(duration=100)
+
+                final_audio.export(final_filename, format="wav")
+                os.remove(temp_filename)  # Clean up temporary file
+
+                current_sentence += 1
+                self.progress['value'] = (current_sentence / total_sentences) * 100
+                self.update_status(f"TTS 생성 중... ({current_sentence}/{total_sentences})")
+                self.root.update()
+
+            driver.quit()
+            p.terminate()
+
+            self.update_status("TTS 생성이 완료되었습니다!")
+
+        except Exception as e:
+            self.update_status(f"TTS 생성 중 오류 발생: {str(e)}")
+            messagebox.showerror("오류", f"TTS 생성 중 오류가 발생했습니다: {str(e)}")
+            if 'driver' in locals():
+                driver.quit()
+            if 'p' in locals():
+                p.terminate()
+
     def collect_data(self):
         try:
+            # 저장 경로의 모든 파일 삭제
+            base_path = self.save_path.get()
+            if os.path.exists(base_path):
+                for root, dirs, files in os.walk(base_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        try:
+                            os.remove(file_path)
+                        except Exception as e:
+                            self.update_status(f"파일 삭제 중 오류 발생: {str(e)}")
+
             self.update_status("브라우저 실행 중...")
             options = webdriver.ChromeOptions()
             driver = webdriver.Chrome(options=options)
@@ -216,14 +432,14 @@ class DataCollectorGUI:
             # 내용 추출
             element = driver.find_element(By.XPATH, '//div[@class="write_div"]')
             content = re.sub("- dc official App|이미지 순서 ON|마우스 커서를 올리면|이미지 순서를 ON/OFF 할 수 있습니다.", "", element.text)
-            content += '\n/**/'
+
             self.progress['value'] = 60
 
             # 댓글 추출 및 처리
             self.update_status("댓글 추출 중...")
             parent_elements = driver.find_elements(By.XPATH,
                                                    '//div[@class="clear cmt_txtbox"] | //div[@class="clear cmt_txtbox btn_reply_write_all"]')
-            filter_words = ["틱톡", "https", "실베", "kakao",".com","gall","store","MeritTV","도배","디시","디씨","갤러리","갤","🍀","⭐","고고혓","@@"]  # 원하는 필터 단어 추가
+            filter_words = ["틱톡", "https", "실베", "kakao",".com","gall","store","MeritTV","도배","디시","디씨","갤러리","🍀","⭐","고고혓","@@"]  # 원하는 필터 단어 추가
             seen_comments = set()
             is_first_comment = True
             comment_text = []
@@ -246,7 +462,7 @@ class DataCollectorGUI:
                         clean_comment = "┗ " + clean_comment
 
                     clean_comment = clean_comment.replace('\n', ' ')
-                    seen_comments.add(clean_comment)  # 이 줄이 추가됨
+                    seen_comments.add(clean_comment)
                     comment_text.append(clean_comment + "\n")
                     is_first_comment = False
 
@@ -291,8 +507,8 @@ class DataCollectorGUI:
                 self.update_status(f"댓글 영상 생성 실패: {str(e)}")
 
             self.download_images(self.url_entry.get())
-
-
+            self.generate_subtitles()
+            self.generate_tts()
             self.progress['value'] = 100
 
             winsound.PlaySound("SystemExit", winsound.SND_ALIAS)

@@ -132,7 +132,7 @@ class CommentVideoGenerator:
                 out.write(frame)
 
         # 마지막 프레임 2초간 유지
-        for _ in range(2 * base_fps):
+        for _ in range(4 * base_fps):
             out.write(frame)
 
         out.release()
