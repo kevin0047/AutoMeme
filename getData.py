@@ -241,9 +241,12 @@ class DataCollectorGUI:
             os.makedirs(output_folder, exist_ok=True)
 
             try:
-                font = ImageFont.truetype("malgun.ttf", font_size)  # 맑은 고딕
+                # Windows 시스템 폰트 경로 사용
+                font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts')
+                regular_font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
+                bold_font = ImageFont.truetype(os.path.join(font_path, "malgunbd.ttf"), font_size)
             except IOError:
-                font = ImageFont.load_default()
+                regular_font = bold_font = ImageFont.load_default()
 
             with open(input_file, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
@@ -251,9 +254,9 @@ class DataCollectorGUI:
             valid_lines = [line for line in lines if line.strip() and not line.strip().replace(' ', '').isdigit()]
             total_lines = len(valid_lines)
             current_line = 0
-            subtitle_counter = 1  # 순차적 번호를 위한 카운터 추가
+            subtitle_counter = 1
 
-            for line in lines:
+            for i, line in enumerate(lines):
                 line = line.strip()
                 if not line:
                     continue
@@ -263,10 +266,13 @@ class DataCollectorGUI:
                     self.update_status(f"숫자로만 된 줄 건너뜀: {line}")
                     continue
 
+                # 첫 번째 유효한 라인인 경우 볼드 폰트 사용, 그 외에는 일반 폰트 사용
+                current_font = bold_font if subtitle_counter == 1 else regular_font
+
                 # Create temporary image to calculate text size
                 temp_image = Image.new('RGB', (100, 100), color=(192, 192, 192))
                 temp_draw = ImageDraw.Draw(temp_image)
-                bbox = temp_draw.textbbox((0, 0), line, font=font)
+                bbox = temp_draw.textbbox((0, 0), line, font=current_font)
 
                 # Calculate actual image dimensions
                 width = bbox[2] - bbox[0]
@@ -275,7 +281,7 @@ class DataCollectorGUI:
                 # Create actual image
                 image = Image.new('RGB', (width + 20, height + 30), color=(255, 255, 255))
                 draw = ImageDraw.Draw(image)
-                draw.text((10, 10), line, font=font, fill=(0, 0, 102))
+                draw.text((10, 10), line, font=current_font, fill=(0, 0, 102))
 
                 # Save image with sequential number
                 sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]  # Limit filename length
@@ -283,7 +289,7 @@ class DataCollectorGUI:
                 image.save(output_path)
 
                 current_line += 1
-                subtitle_counter += 1  # 순차적으로 증가
+                subtitle_counter += 1
                 self.progress['value'] = (current_line / total_lines) * 100
                 self.update_status(f"자막 생성 중... ({current_line}/{total_lines})")
                 self.root.update()
@@ -390,14 +396,19 @@ class DataCollectorGUI:
 
                 # 완전한 무음인 경우 3초 무음으로 처리
                 if not chunks:
-                    final_audio = AudioSegment.silent(duration=3000)  # 3초 = 3000ms
+                    final_audio = AudioSegment.silent(duration=3000)
                     self.update_status(f"{i}번 문장이 무음으로 감지되어 3초 무음으로 대체되었습니다.")
                 else:
-                    # 기존 청크 처리 로직
                     final_audio = AudioSegment.empty()
                     for chunk in chunks[:-1]:
                         final_audio += chunk + AudioSegment.silent(duration=100)
-                    final_audio += chunks[-1] + AudioSegment.silent(duration=150)
+                    final_audio += chunks[-1]
+
+                    # 마지막 문장인 경우 4초 무음 추가, 그 외에는 250ms 무음 추가
+                    if i == total_sentences:
+                        final_audio += AudioSegment.silent(duration=4000)  # 4초
+                    else:
+                        final_audio += AudioSegment.silent(duration=250)  # 250ms
 
                 final_audio.export(final_filename, format="wav")
                 os.remove(temp_filename)  # Clean up temporary file

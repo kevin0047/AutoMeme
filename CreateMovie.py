@@ -19,7 +19,7 @@ class VideoGenerator:
         self.width = 1370
         self.height = 1080
         self.fps = 30
-        self.sequence_image_duration = 2  # 숫자로 불러온 이미지 표시 대기 시간 (초)
+        self.sequence_image_duration = 1  # 숫자로 불러온 이미지 표시 대기 시간 (초)
         self.images_folder = r"C:\Users\ska00\Desktop\AutoMeme\Images"  # 순차 이미지 폴더
 
     def get_wav_duration(self, wav_path):
@@ -34,12 +34,66 @@ class VideoGenerator:
             print(f"WAV 파일 읽기 오류: {e}")
             return 3.0
 
+    def get_gif_info(self, gif_path):
+        """GIF 파일의 프레임과 재생 시간 정보를 반환"""
+        try:
+            gif = Image.open(gif_path)
+            frames = []
+            durations = []
+            total_duration = 0
+
+            try:
+                while True:
+                    duration = gif.info.get('duration', 100)  # 기본값 100ms
+                    frame = cv2.cvtColor(np.array(gif.convert('RGBA')), cv2.COLOR_RGBA2BGRA)
+                    frames.append(frame)
+                    durations.append(duration)
+                    total_duration += duration
+                    gif.seek(gif.tell() + 1)
+            except EOFError:
+                pass
+
+            return frames, durations, total_duration / 1000.0  # 총 재생시간을 초 단위로 반환
+        except Exception as e:
+            print(f"GIF 처리 중 오류 발생: {e}")
+            return None, None, None
+
+    def get_video_info(self, video_path):
+        """MP4 파일의 프레임과 재생 시간 정보를 반환"""
+        try:
+            cap = cv2.VideoCapture(video_path)
+            frames = []
+
+            # 비디오 정보 가져오기
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            duration = frame_count / fps
+
+            # 모든 프레임 읽기
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                # BGRA 형식으로 변환
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
+                frames.append(frame)
+
+            cap.release()
+            return frames, duration
+        except Exception as e:
+            print(f"비디오 처리 중 오류 발생: {e}")
+            return None, None
+
     def find_tts_file(self, index):
         """해당 인덱스의 TTS 파일 찾기"""
-        prefix = f"tts{index}"
+        prefix = f"tts{index}_"  # 언더스코어 추가
+        matching_files = []
         for filename in os.listdir(self.image_folder):
             if filename.startswith(prefix) and filename.endswith('.wav'):
-                return os.path.join(self.image_folder, filename)
+                matching_files.append(filename)
+
+        if matching_files:
+            return os.path.join(self.image_folder, matching_files[0])
         return None
 
     def resize_image(self, image, max_width=800, max_height=600):
@@ -68,10 +122,14 @@ class VideoGenerator:
 
     def find_subtitle_image(self, index):
         """자막 이미지 파일 찾기"""
-        prefix = f"subtitle_{index}_"
+        prefix = f"subtitle_{index}_"  # 언더스코어 추가
+        matching_files = []
         for filename in os.listdir(self.image_folder):
             if filename.startswith(prefix) and filename.lower().endswith('.png'):
-                return os.path.join(self.image_folder, filename)
+                matching_files.append(filename)
+
+        if matching_files:
+            return os.path.join(self.image_folder, matching_files[0])
         return None
 
     def find_sequence_image(self, number):
@@ -87,34 +145,45 @@ class VideoGenerator:
         return text.strip().isdigit()
 
     def read_image_with_pil(self, image_path):
-        """PIL을 사용하여 이미지 읽기"""
+        """PIL을 사용하여 이미지 읽기 (GIF, MP4 지원)"""
         try:
             if image_path is None:
                 print(f"이미지 경로가 None입니다.")
-                return None
+                return None, None, None, None
 
             if not os.path.exists(image_path):
                 print(f"이미지 파일이 존재하지 않습니다: {image_path}")
-                return None
+                return None, None, None, None
 
-            pil_image = Image.open(image_path)
-            pil_image = pil_image.convert('RGBA')
-            numpy_image = np.array(pil_image)
-            return cv2.cvtColor(numpy_image, cv2.COLOR_RGBA2BGRA)
+            # 파일 확장자 확인
+            ext = os.path.splitext(image_path)[1].lower()
+            if ext == '.gif':
+                frames, durations, total_duration = self.get_gif_info(image_path)
+                return frames, durations, total_duration, 'gif'
+            elif ext == '.mp4':
+                frames, duration = self.get_video_info(image_path)
+                return frames, None, duration, 'mp4'
+            else:
+                pil_image = Image.open(image_path)
+                pil_image = pil_image.convert('RGBA')
+                numpy_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGBA2BGRA)
+                return numpy_image, None, None, 'image'
+
         except Exception as e:
             print(f"이미지 로딩 에러 ({image_path}): {e}")
-            return None
+            return None, None, None, None
 
     def find_first_sequence_image(self):
         """Images 폴더에서 첫 번째 이미지 찾기"""
         try:
             for filename in sorted(os.listdir(self.images_folder)):
-                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4','.webp')):
                     return os.path.join(self.images_folder, filename)
             return None
         except Exception as e:
             print(f"첫 번째 이미지 검색 중 오류: {e}")
             return None
+
     def overlay_image(self, frame, overlay_img, y_offset, x_offset):
         """이미지 오버레이"""
         try:
@@ -160,7 +229,7 @@ class VideoGenerator:
             print("제목 이미지를 찾을 수 없습니다.")
             return
 
-        title_img = self.read_image_with_pil(title_image_path)
+        title_img = self.read_image_with_pil(title_image_path)[0]  # 첫 번째 요소만 사용
         if title_img is None:
             print("제목 이미지를 로드할 수 없습니다.")
             return
@@ -184,61 +253,133 @@ class VideoGenerator:
 
         current_time += int(title_duration * 1000)
 
-        # 기본 중앙 이미지 로드 (Images 폴더의 첫 번째 이미지)
-        current_center_img = None
+        # 기본 중앙 이미지 로드
         first_image_path = self.find_first_sequence_image()
+        current_center_img = None
         if first_image_path:
-            current_center_img = self.read_image_with_pil(first_image_path)
-            if current_center_img is not None:
-                current_center_img = self.resize_image(current_center_img)
-                print(f"기본 이미지 로드됨: {first_image_path}")
-
-                # 2초 대기
-                for _ in range(int(self.fps * self.sequence_image_duration)):
+            result = self.read_image_with_pil(first_image_path)
+            if result[3] == 'gif':
+                frames, durations, total_duration, _ = result
+                for frame_index in range(len(frames)):
                     frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                    current_frame = self.resize_image(frames[frame_index])
+
                     # 제목 표시
                     self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-                    # 중앙 이미지 표시
-                    y_offset = (self.height - current_center_img.shape[0]) // 2
-                    x_offset = (self.width - current_center_img.shape[1]) // 2
-                    self.overlay_image(frame, current_center_img, y_offset, x_offset)
-                    out.write(frame)
 
-                current_time += self.sequence_image_duration * 1000
-            else:
-                print("기본 이미지를 로드할 수 없습니다.")
-        else:
-            print("Images 폴더에서 이미지를 찾을 수 없습니다.")
+                    # GIF 프레임 표시
+                    y_offset = (self.height - current_frame.shape[0]) // 2
+                    x_offset = (self.width - current_frame.shape[1]) // 2
+                    self.overlay_image(frame, current_frame, y_offset, x_offset)
+
+                    frame_duration_sec = durations[frame_index] / 1000.0
+                    for _ in range(int(self.fps * frame_duration_sec)):
+                        out.write(frame)
+                current_time += total_duration * 1000
+
+            elif result[3] == 'mp4':
+                frames, _, duration, _ = result
+                for frame in frames:
+                    resized_frame = self.resize_image(frame)
+                    base_frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+
+                    # 제목 표시
+                    self.overlay_image(base_frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
+                    # 비디오 프레임 표시
+                    y_offset = (self.height - resized_frame.shape[0]) // 2
+                    x_offset = (self.width - resized_frame.shape[1]) // 2
+                    self.overlay_image(base_frame, resized_frame, y_offset, x_offset)
+
+                    out.write(base_frame)
+                current_time += duration * 1000
+
+            else:  # 일반 이미지
+                current_center_img = result[0]
+                if current_center_img is not None:
+                    current_center_img = self.resize_image(current_center_img)
+
+                    for _ in range(int(self.fps * self.sequence_image_duration)):
+                        frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                        self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                        y_offset = (self.height - current_center_img.shape[0]) // 2
+                        x_offset = (self.width - current_center_img.shape[1]) // 2
+                        self.overlay_image(frame, current_center_img, y_offset, x_offset)
+                        out.write(frame)
+
+                    current_time += self.sequence_image_duration * 1000
 
         # 나머지 내용 처리
         for i, line in enumerate(lines[1:], 2):
             print(f"처리 중인 줄 {i}: {line}")
 
             if self.is_sequence_number(line):
-                # 숫자를 만나면 새로운 중앙 이미지로 교체
                 sequence_img_path = self.find_sequence_image(int(line))
                 print(f"시퀀스 이미지 경로: {sequence_img_path}")
 
                 if sequence_img_path:
-                    current_center_img = self.read_image_with_pil(sequence_img_path)
-                    if current_center_img is not None:
-                        current_center_img = self.resize_image(current_center_img)
-                    else:
-                        print(f"시퀀스 이미지를 로드할 수 없습니다: {sequence_img_path}")
+                    result = self.read_image_with_pil(sequence_img_path)
 
-                # 숫자 이미지 전환 시 대기 시간 추가
-                for _ in range(int(self.fps * self.sequence_image_duration)):
-                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                    # 제목 표시
-                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-                    # 중앙 이미지 표시
-                    if current_center_img is not None:
-                        y_offset = (self.height - current_center_img.shape[0]) // 2
-                        x_offset = (self.width - current_center_img.shape[1]) // 2
-                        self.overlay_image(frame, current_center_img, y_offset, x_offset)
-                    out.write(frame)
+                    if result[3] == 'gif':  # GIF 파일
+                        frames, durations, total_duration, _ = result
+                        frame_index = 0
+                        elapsed_time = 0
 
-                current_time += self.sequence_image_duration * 1000
+                        while elapsed_time < total_duration:
+                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                            current_frame = self.resize_image(frames[frame_index])
+
+                            # 제목 표시
+                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
+                            # GIF 프레임 표시
+                            y_offset = (self.height - current_frame.shape[0]) // 2
+                            x_offset = (self.width - current_frame.shape[1]) // 2
+                            self.overlay_image(frame, current_frame, y_offset, x_offset)
+
+                            frame_duration_sec = durations[frame_index] / 1000.0
+                            for _ in range(int(self.fps * frame_duration_sec)):
+                                out.write(frame)
+
+                            elapsed_time += frame_duration_sec
+                            frame_index = (frame_index + 1) % len(frames)
+
+                        current_time += total_duration * 1000
+
+                    elif result[3] == 'mp4':  # MP4 파일
+                        frames, _, duration, _ = result
+                        frame_count = len(frames)
+
+                        for frame_index in range(frame_count):
+                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                            current_frame = self.resize_image(frames[frame_index])
+
+                            # 제목 표시
+                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
+                            # 비디오 프레임 표시
+                            y_offset = (self.height - current_frame.shape[0]) // 2
+                            x_offset = (self.width - current_frame.shape[1]) // 2
+                            self.overlay_image(frame, current_frame, y_offset, x_offset)
+
+                            out.write(frame)
+
+                        current_time += duration * 1000
+
+                    else:  # 일반 이미지
+                        current_center_img = result[0]
+                        if current_center_img is not None:
+                            current_center_img = self.resize_image(current_center_img)
+
+                            for _ in range(int(self.fps * self.sequence_image_duration)):
+                                frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                                self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                                y_offset = (self.height - current_center_img.shape[0]) // 2
+                                x_offset = (self.width - current_center_img.shape[1]) // 2
+                                self.overlay_image(frame, current_center_img, y_offset, x_offset)
+                                out.write(frame)
+
+                            current_time += self.sequence_image_duration * 1000
                 continue
 
             # 일반 자막과 음성 처리
@@ -247,7 +388,7 @@ class VideoGenerator:
 
             subtitle_img = None
             if image_path:
-                subtitle_img = self.read_image_with_pil(image_path)
+                subtitle_img = self.read_image_with_pil(image_path)[0]  # 첫 번째 요소만 사용
                 if subtitle_img is None:
                     print(f"자막 이미지를 로드할 수 없습니다: {image_path}")
 
@@ -278,7 +419,7 @@ class VideoGenerator:
                 out.write(frame)
 
             current_time += int(duration * 1000)
-            subtitle_index += 1  # 일반 텍스트 처리 후 자막 인덱스 증가
+            subtitle_index += 1
 
         out.release()
 
