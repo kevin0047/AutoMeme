@@ -111,6 +111,8 @@ class DataCollectorGUI:
         cleaned_lines = []
         for line in non_empty_lines:
             clean_line = line.strip() + '.'
+
+            clean_line = re.sub(r'\([^)]*\)', '', clean_line)
             clean_line = clean_line.replace('ㅋ', '.').replace('ㅂㄷ', '부들') \
                 .replace('ㄹㅈㄷ', '레전드').replace('ㄱㅊ', '괜찮') \
                 .replace('ㄳ', '감사').replace('ㄱㅅ', '감사') \
@@ -137,11 +139,13 @@ class DataCollectorGUI:
                 .replace('5성', '오성').replace('ㄴㄴ', '노노') \
                 .replace('관련게시물 : ', '.') .replace('[단독]', '.')\
 
-            while '..' in clean_line:
-                clean_line = clean_line.replace('..', '.')
+
+            if not all(char == '.' for char in clean_line) or clean_line.count('.') < 2:
+                while '..' in clean_line:
+                    clean_line = clean_line.replace('..', '.')
             cleaned_lines.append(clean_line)
 
-        # 결과 저장
+            # 결과 저장
         text = '\n'.join(cleaned_lines).rstrip('.')
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(text)
@@ -177,13 +181,16 @@ class DataCollectorGUI:
                 self.update_status(f"경로 생성 중 오류 발생: {str(e)}")
                 return
 
-            for li in image_download_contents:
+            total_images = len(image_download_contents)
+            for index, li in enumerate(image_download_contents, 1):
                 img_tag = li.find('a', href=True)
                 if not img_tag:
                     continue
 
                 img_url = img_tag['href']
-                savename = img_url.split("no=")[2]
+                original_name = img_url.split("no=")[2]
+                # 순서를 파일명에 추가
+                savename = f"{index:02d}_{original_name}"  # 01_filename.jpg 형식
                 headers['Referer'] = url
 
                 try:
@@ -194,7 +201,7 @@ class DataCollectorGUI:
 
                     if os.path.isfile(path):
                         if getsize(path) != file_size:
-                            new_path = os.path.join(image_path, f"[1]{savename}")
+                            new_path = os.path.join(image_path, f"{index:02d}_[1]{original_name}")
                             self.update_status(f"다운로드 중: {savename} (다른 크기)")
                             with open(new_path, "wb") as file:
                                 file.write(response.content)
@@ -204,6 +211,9 @@ class DataCollectorGUI:
                         self.update_status(f"다운로드 중: {savename}")
                         with open(path, "wb") as file:
                             file.write(response.content)
+
+                    # 프로그레스바 업데이트
+                    self.progress['value'] = (index / total_images) * 90
 
                 except Exception as e:
                     self.update_status(f"이미지 다운로드 중 오류 발생: {str(e)}")
@@ -221,7 +231,7 @@ class DataCollectorGUI:
             # Define input and output paths
             input_file = f"{self.save_path.get()}/txt/content.txt"
             output_folder = f"{self.save_path.get()}/voice"
-            font_size = 30  # Default font size, you can make this configurable
+            font_size = 30
 
             if not os.path.exists(input_file):
                 messagebox.showerror("오류", "content.txt 파일을 찾을 수 없습니다.")
@@ -238,10 +248,12 @@ class DataCollectorGUI:
             with open(input_file, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
 
-            total_lines = len([line for line in lines if line.strip()])
+            valid_lines = [line for line in lines if line.strip() and not line.strip().replace(' ', '').isdigit()]
+            total_lines = len(valid_lines)
             current_line = 0
+            subtitle_counter = 1  # 순차적 번호를 위한 카운터 추가
 
-            for i, line in enumerate(lines):
+            for line in lines:
                 line = line.strip()
                 if not line:
                     continue
@@ -265,12 +277,13 @@ class DataCollectorGUI:
                 draw = ImageDraw.Draw(image)
                 draw.text((10, 10), line, font=font, fill=(0, 0, 102))
 
-                # Save image
+                # Save image with sequential number
                 sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]  # Limit filename length
-                output_path = os.path.join(output_folder, f'subtitle_{i + 1}_{sanitized_line}.png')
+                output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{sanitized_line}.png')
                 image.save(output_path)
 
                 current_line += 1
+                subtitle_counter += 1  # 순차적으로 증가
                 self.progress['value'] = (current_line / total_lines) * 100
                 self.update_status(f"자막 생성 중... ({current_line}/{total_lines})")
                 self.root.update()
@@ -375,10 +388,16 @@ class DataCollectorGUI:
                                           silence_thresh=-40
                                           )
 
-                # Combine chunks with short silence between them
-                final_audio = AudioSegment.empty()
-                for chunk in chunks:
-                    final_audio += chunk + AudioSegment.silent(duration=100)
+                # 완전한 무음인 경우 3초 무음으로 처리
+                if not chunks:
+                    final_audio = AudioSegment.silent(duration=3000)  # 3초 = 3000ms
+                    self.update_status(f"{i}번 문장이 무음으로 감지되어 3초 무음으로 대체되었습니다.")
+                else:
+                    # 기존 청크 처리 로직
+                    final_audio = AudioSegment.empty()
+                    for chunk in chunks[:-1]:
+                        final_audio += chunk + AudioSegment.silent(duration=100)
+                    final_audio += chunks[-1] + AudioSegment.silent(duration=150)
 
                 final_audio.export(final_filename, format="wav")
                 os.remove(temp_filename)  # Clean up temporary file
@@ -432,6 +451,8 @@ class DataCollectorGUI:
             # 내용 추출
             element = driver.find_element(By.XPATH, '//div[@class="write_div"]')
             content = re.sub("- dc official App|이미지 순서 ON|마우스 커서를 올리면|이미지 순서를 ON/OFF 할 수 있습니다.", "", element.text)
+            # 빈 줄 제거
+            content = '\n'.join(line for line in content.splitlines() if line.strip())
 
             self.progress['value'] = 60
 
