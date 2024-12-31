@@ -105,6 +105,16 @@ class VideoGenerator:
             print(f"이미지 로딩 에러 ({image_path}): {e}")
             return None
 
+    def find_first_sequence_image(self):
+        """Images 폴더에서 첫 번째 이미지 찾기"""
+        try:
+            for filename in sorted(os.listdir(self.images_folder)):
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    return os.path.join(self.images_folder, filename)
+            return None
+        except Exception as e:
+            print(f"첫 번째 이미지 검색 중 오류: {e}")
+            return None
     def overlay_image(self, frame, overlay_img, y_offset, x_offset):
         """이미지 오버레이"""
         try:
@@ -173,7 +183,32 @@ class VideoGenerator:
             out.write(frame)
 
         current_time += int(title_duration * 1000)
+
+        # 기본 중앙 이미지 로드 (Images 폴더의 첫 번째 이미지)
         current_center_img = None
+        first_image_path = self.find_first_sequence_image()
+        if first_image_path:
+            current_center_img = self.read_image_with_pil(first_image_path)
+            if current_center_img is not None:
+                current_center_img = self.resize_image(current_center_img)
+                print(f"기본 이미지 로드됨: {first_image_path}")
+
+                # 2초 대기
+                for _ in range(int(self.fps * self.sequence_image_duration)):
+                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                    # 제목 표시
+                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                    # 중앙 이미지 표시
+                    y_offset = (self.height - current_center_img.shape[0]) // 2
+                    x_offset = (self.width - current_center_img.shape[1]) // 2
+                    self.overlay_image(frame, current_center_img, y_offset, x_offset)
+                    out.write(frame)
+
+                current_time += self.sequence_image_duration * 1000
+            else:
+                print("기본 이미지를 로드할 수 없습니다.")
+        else:
+            print("Images 폴더에서 이미지를 찾을 수 없습니다.")
 
         # 나머지 내용 처리
         for i, line in enumerate(lines[1:], 2):
