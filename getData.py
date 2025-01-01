@@ -122,7 +122,8 @@ class DataCollectorGUI:
                 .replace('jpg', '.').replace('png', '.') \
                 .replace('JPG', '.').replace('TXT', '.') \
                 .replace('txt', '.').replace('GIF', '.') \
-                .replace('gif', '.').replace('|', '.') \
+                .replace('gif', '.').replace('mp4', '.')\
+                .replace('|', '.') .replace('MP4', '.')\
                 .replace('-', '.').replace('❗', '.') \
                 .replace('!', '.').replace('❓', '.') \
                 .replace('♥', '.').replace('♡', '.') \

@@ -21,7 +21,8 @@ class VideoGenerator:
         self.fps = 30
         self.sequence_image_duration = 1  # 숫자로 불러온 이미지 표시 대기 시간 (초)
         self.images_folder = r"C:\Users\ska00\Desktop\AutoMeme\Images"  # 순차 이미지 폴더
-
+        self.current_subtitles = []  # 현재 표시 중인 자막 리스트 추가
+        self.max_subtitles = 4  # 최대 자막 줄 수
     def get_wav_duration(self, wav_path):
         """WAV 파일의 재생 시간을 초 단위로 반환"""
         try:
@@ -96,7 +97,7 @@ class VideoGenerator:
             return os.path.join(self.image_folder, matching_files[0])
         return None
 
-    def resize_image(self, image, max_width=1340, max_height=900):
+    def resize_image(self, image, max_width=1340, max_height=850):
         """이미지 크기 조정"""
         h, w = image.shape[:2]
         aspect = min(max_width / w, max_height / h)
@@ -205,6 +206,22 @@ class VideoGenerator:
             print(f"Overlay shape: {overlay_img.shape}")
             print(f"Offsets: ({x_offset}, {y_offset})")
 
+    def overlay_subtitles(self, frame, subtitles):
+        """여러 줄의 자막을 오버레이"""
+        if not subtitles:
+            return
+
+        total_height = sum(subtitle.shape[0] for subtitle, _ in subtitles)
+        spacing = 10  # 자막 간 간격
+        total_spacing = spacing * (len(subtitles) - 1)
+        start_y = self.height - total_height - total_spacing - 50
+
+        current_y = start_y
+        for subtitle_img, _ in subtitles:
+            subtitle_x_offset = (self.width - subtitle_img.shape[1]) // 2
+            self.overlay_image(frame, subtitle_img, current_y, subtitle_x_offset)
+            current_y += subtitle_img.shape[0] + spacing
+
     def create_video(self):
         """비디오 생성"""
         lines = self.read_text_file()
@@ -222,6 +239,7 @@ class VideoGenerator:
         audio_segments = []
         current_time = 0
         subtitle_index = 1  # 자막 인덱스 별도 관리
+        self.current_subtitles = []  # 현재 표시중인 자막 리스트
 
         # 1. 제목 표시 및 제목 TTS
         title_image_path = self.find_subtitle_image(subtitle_index)
@@ -314,6 +332,7 @@ class VideoGenerator:
             print(f"처리 중인 줄 {i}: {line}")
 
             if self.is_sequence_number(line):
+                self.current_subtitles = []  # 자막 초기화
                 sequence_img_path = self.find_sequence_image(int(line))
                 print(f"시퀀스 이미지 경로: {sequence_img_path}")
 
@@ -391,6 +410,12 @@ class VideoGenerator:
                 subtitle_img = self.read_image_with_pil(image_path)[0]  # 첫 번째 요소만 사용
                 if subtitle_img is None:
                     print(f"자막 이미지를 로드할 수 없습니다: {image_path}")
+                else:
+                    # 현재 자막 추가
+                    self.current_subtitles.append((subtitle_img, subtitle_index))
+                    # 최대 4줄 유지
+                    if len(self.current_subtitles) > 4:
+                        self.current_subtitles.pop(0)
 
             tts_path = self.find_tts_file(subtitle_index)
             print(f"TTS 파일 경로 (인덱스 {subtitle_index}): {tts_path}")
@@ -411,11 +436,19 @@ class VideoGenerator:
                     y_offset = (self.height - current_center_img.shape[0]) // 2
                     x_offset = (self.width - current_center_img.shape[1]) // 2
                     self.overlay_image(frame, current_center_img, y_offset, x_offset)
-                # 자막 표시
-                if subtitle_img is not None:
-                    subtitle_y_offset = self.height - subtitle_img.shape[0] - 50
-                    subtitle_x_offset = (self.width - subtitle_img.shape[1]) // 2
-                    self.overlay_image(frame, subtitle_img, subtitle_y_offset, subtitle_x_offset)
+
+                # 여러 줄의 자막 표시
+                total_height = sum(subtitle.shape[0] for subtitle, _ in self.current_subtitles)
+                spacing = 10  # 자막 간 간격
+                total_spacing = spacing * (len(self.current_subtitles) - 1)
+                start_y = self.height - total_height - total_spacing - 50
+
+                current_y = start_y
+                for subtitle, _ in self.current_subtitles:
+                    subtitle_x_offset = (self.width - subtitle.shape[1]) // 2
+                    self.overlay_image(frame, subtitle, current_y, subtitle_x_offset)
+                    current_y += subtitle.shape[0] + spacing
+
                 out.write(frame)
 
             current_time += int(duration * 1000)
