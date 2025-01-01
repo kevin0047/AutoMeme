@@ -96,7 +96,7 @@ class VideoGenerator:
             return os.path.join(self.image_folder, matching_files[0])
         return None
 
-    def resize_image(self, image, max_width=800, max_height=600):
+    def resize_image(self, image, max_width=1340, max_height=900):
         """이미지 크기 조정"""
         h, w = image.shape[:2]
         aspect = min(max_width / w, max_height / h)
@@ -449,16 +449,59 @@ class VideoGenerator:
 
         print("비디오 생성이 완료되었습니다.")
 
+    def combine_videos(self):
+        """메인 비디오와 comments 비디오 합치기"""
+        comments_path = os.path.join(os.path.dirname(self.output_path), "output_comments.mp4")
+        final_output = os.path.join(os.path.dirname(self.output_path), "final_output.mp4")
+
+        # 메인 비디오 길이 확인
+        main_cap = cv2.VideoCapture(self.output_path)
+        main_duration = main_cap.get(cv2.CAP_PROP_FRAME_COUNT) / main_cap.get(cv2.CAP_PROP_FPS)
+
+        # comments 비디오 속도 조절을 위한 ffmpeg 명령어 생성
+        temp_comments = os.path.join(os.path.dirname(self.output_path), "temp_comments.mp4")
+        comments_cap = cv2.VideoCapture(comments_path)
+        comments_duration = comments_cap.get(cv2.CAP_PROP_FRAME_COUNT) / comments_cap.get(cv2.CAP_PROP_FPS)
+
+        # 속도 조절 계수 계산
+        speed = comments_duration / main_duration
+
+        # comments 비디오 속도 조절
+        speed_command = [
+            'ffmpeg', '-y',
+            '-i', comments_path,
+            '-filter:v', f'setpts={1 / speed}*PTS',
+            '-filter:a', f'atempo={speed}',
+            temp_comments
+        ]
+        subprocess.run(speed_command, check=True)
+
+        # 두 비디오 합치기
+        combine_command = [
+            'ffmpeg', '-y',
+            '-i', self.output_path,
+            '-i', temp_comments,
+            '-filter_complex', '[0:v][1:v]hstack=inputs=2[v]',
+            '-map', '[v]',
+            '-map', '0:a',
+            final_output
+        ]
+        subprocess.run(combine_command, check=True)
+
+        # 임시 파일 삭제
+        os.remove(temp_comments)
+        os.rename(final_output, self.output_path)
+
+
 
 def main():
-    # 경로 설정
     text_path = r"C:\Users\ska00\Desktop\AutoMeme\txt\content.txt"
     image_folder = r"C:\Users\ska00\Desktop\AutoMeme\voice"
     output_path = r"C:\Users\ska00\Desktop\AutoMeme\output.mp4"
 
-    # 비디오 생성
     generator = VideoGenerator(text_path, image_folder, output_path)
     generator.create_video()
+    generator.combine_videos()
 
 
 if __name__ == "__main__":
