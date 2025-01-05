@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment=".">
+    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="자막4개로 나오게">
+      <change afterPath="$PROJECT_DIR$/sum.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreateMovie.py" beforeDir="false" afterPath="$PROJECT_DIR$/CreateMovie.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/getData.py" beforeDir="false" afterPath="$PROJECT_DIR$/getData.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -22,18 +25,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "kevin0047"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;kevin0047&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/kevin0047/AutoMeme",
-    "accountId": "0aba3ac2-90dd-42cb-ba01-a5b972b53a9b"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/kevin0047/AutoMeme&quot;,
+    &quot;accountId&quot;: &quot;0aba3ac2-90dd-42cb-ba01-a5b972b53a9b&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
 }</component>
@@ -45,8 +48,10 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.CreateMovie.executor": "Run",
     "Python.getData.executor": "Run",
     "Python.save_images.executor": "Run",
+    "Python.sum.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main",
@@ -83,7 +88,63 @@
       <option name="project" value="LOCAL" />
       <updated>1735477919270</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary=".">
+      <option name="closed" value="true" />
+      <created>1735527763351</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1735527763351</updated>
+    </task>
+    <task id="LOCAL-00003" summary="이미지 불러오는거 수정해야함">
+      <option name="closed" value="true" />
+      <created>1735650228213</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1735650228213</updated>
+    </task>
+    <task id="LOCAL-00004" summary="이미지 불러오는거 수정함">
+      <option name="closed" value="true" />
+      <created>1735652081430</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1735652081430</updated>
+    </task>
+    <task id="LOCAL-00005" summary="이미지 불러오는거 수정함">
+      <option name="closed" value="true" />
+      <created>1735653109278</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1735653109278</updated>
+    </task>
+    <task id="LOCAL-00006" summary="영상도되게함">
+      <option name="closed" value="true" />
+      <created>1735656362312</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1735656362312</updated>
+    </task>
+    <task id="LOCAL-00007" summary="댓글 합치기">
+      <option name="closed" value="true" />
+      <created>1735706048776</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1735706048776</updated>
+    </task>
+    <task id="LOCAL-00008" summary="자막4개로 나오게">
+      <option name="closed" value="true" />
+      <created>1735706979010</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1735706979010</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -126,6 +187,11 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="." />
-    <option name="LAST_COMMIT_MESSAGE" value="." />
+    <MESSAGE value="이미지 불러오는거 수정해야함" />
+    <MESSAGE value="이미지 불러오는거 수정함" />
+    <MESSAGE value="영상도되게함" />
+    <MESSAGE value="댓글 합치기" />
+    <MESSAGE value="자막4개로 나오게" />
+    <option name="LAST_COMMIT_MESSAGE" value="자막4개로 나오게" />
   </component>
 </project>

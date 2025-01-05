@@ -7,8 +7,7 @@ import os
 import wave
 from pydub import AudioSegment
 import subprocess
-
-
+import winsound
 class VideoGenerator:
     def __init__(self, text_path, image_folder, output_path):
         self.text_path = text_path
@@ -23,6 +22,19 @@ class VideoGenerator:
         self.images_folder = r"C:\Users\ska00\Desktop\AutoMeme\Images"  # 순차 이미지 폴더
         self.current_subtitles = []  # 현재 표시 중인 자막 리스트 추가
         self.max_subtitles = 4  # 최대 자막 줄 수
+
+    def is_sequence_number(self, text):
+        """문자열이 숫자로만 이루어져 있는지 확인"""
+        return text.strip().isdigit() if text else False
+
+    def get_next_element_type(self, lines, current_index):
+        """다음 요소의 타입을 반환 (이미지 또는 텍스트)
+        마지막 요소인 경우 'last'를 반환"""
+        if current_index + 1 >= len(lines):
+            return "last"  # 마지막 요소인 경우
+
+        next_line = lines[current_index + 1]
+        return "image" if self.is_sequence_number(next_line) else "text"
     def get_wav_duration(self, wav_path):
         """WAV 파일의 재생 시간을 초 단위로 반환"""
         try:
@@ -331,10 +343,16 @@ class VideoGenerator:
         for i, line in enumerate(lines[1:], 2):
             print(f"처리 중인 줄 {i}: {line}")
 
+            # create_video 메서드 내부의 이미지 처리 부분
             if self.is_sequence_number(line):
                 self.current_subtitles = []  # 자막 초기화
                 sequence_img_path = self.find_sequence_image(int(line))
                 print(f"시퀀스 이미지 경로: {sequence_img_path}")
+
+                # 다음 요소의 타입에 따라 지속시간 결정
+                next_element_type = self.get_next_element_type(lines, i - 1)
+                # 다음 요소가 이미지이거나 마지막 요소일 경우 3초
+                image_duration = 3.0 if (next_element_type == "image" or next_element_type == "last") else 1.0
 
                 if sequence_img_path:
                     result = self.read_image_with_pil(sequence_img_path)
@@ -385,20 +403,30 @@ class VideoGenerator:
 
                         current_time += duration * 1000
 
+
                     else:  # 일반 이미지
+
                         current_center_img = result[0]
+
                         if current_center_img is not None:
+
                             current_center_img = self.resize_image(current_center_img)
 
-                            for _ in range(int(self.fps * self.sequence_image_duration)):
+                            for _ in range(int(self.fps * image_duration)):  # 수정된 지속시간 사용
+
                                 frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+
                                 self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
                                 y_offset = (self.height - current_center_img.shape[0]) // 2
+
                                 x_offset = (self.width - current_center_img.shape[1]) // 2
+
                                 self.overlay_image(frame, current_center_img, y_offset, x_offset)
+
                                 out.write(frame)
 
-                            current_time += self.sequence_image_duration * 1000
+                            current_time += image_duration * 1000
                 continue
 
             # 일반 자막과 음성 처리
@@ -524,6 +552,7 @@ class VideoGenerator:
         # 임시 파일 삭제
         os.remove(temp_comments)
         os.rename(final_output, self.output_path)
+        winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
 
 
 

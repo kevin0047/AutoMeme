@@ -138,7 +138,8 @@ class DataCollectorGUI:
                 .replace('4돌', '사돌').replace('5돌', '오돌') \
                 .replace('6돌', '육돌').replace('4성', '사성') \
                 .replace('5성', '오성').replace('ㄴㄴ', '노노') \
-                .replace('관련게시물 : ', '.') .replace('[단독]', '.')\
+                .replace('관련게시물 : ', '.') .replace('[단독]', '.') \
+                .replace('스포)', '.')
 
 
             if not all(char == '.' for char in clean_line) or clean_line.count('.') < 2:
@@ -229,7 +230,6 @@ class DataCollectorGUI:
 
     def generate_subtitles(self):
         try:
-            # Define input and output paths
             input_file = f"{self.save_path.get()}/txt/content.txt"
             output_folder = f"{self.save_path.get()}/voice"
             font_size = 30
@@ -238,16 +238,36 @@ class DataCollectorGUI:
                 messagebox.showerror("오류", "content.txt 파일을 찾을 수 없습니다.")
                 return
 
-            # Create output directory if it doesn't exist
             os.makedirs(output_folder, exist_ok=True)
 
             try:
-                # Windows 시스템 폰트 경로 사용
                 font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts')
                 regular_font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
                 bold_font = ImageFont.truetype(os.path.join(font_path, "malgunbd.ttf"), font_size)
             except IOError:
                 regular_font = bold_font = ImageFont.load_default()
+
+            def split_text(text):
+                if len(text) <= 40:
+                    return [text]
+
+                # 문장을 20자씩 나누되, 공백을 기준으로 나누기
+                words = text.split()
+                lines = []
+                current_line = ""
+
+                for word in words:
+                    if len(current_line) + len(word) + 1 <= 40:
+                        current_line += " " + word if current_line else word
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = word
+
+                if current_line:
+                    lines.append(current_line)
+
+                return lines
 
             with open(input_file, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
@@ -259,33 +279,42 @@ class DataCollectorGUI:
 
             for i, line in enumerate(lines):
                 line = line.strip()
-                if not line:
+                if not line or line.replace(' ', '').isdigit():
                     continue
 
-                # Skip lines that contain only numbers
-                if line.replace(' ', '').isdigit():
-                    self.update_status(f"숫자로만 된 줄 건너뜀: {line}")
-                    continue
-
-                # 첫 번째 유효한 라인인 경우 볼드 폰트 사용, 그 외에는 일반 폰트 사용
                 current_font = bold_font if subtitle_counter == 1 else regular_font
 
-                # Create temporary image to calculate text size
-                temp_image = Image.new('RGB', (100, 100), color=(192, 192, 192))
-                temp_draw = ImageDraw.Draw(temp_image)
-                bbox = temp_draw.textbbox((0, 0), line, font=current_font)
+                # 텍스트를 20자 단위로 분할
+                text_lines = split_text(line)
+                max_width = 0
+                total_height = 0
+                line_heights = []
 
-                # Calculate actual image dimensions
-                width = bbox[2] - bbox[0]
-                height = bbox[3] - bbox[1]
+                # 각 줄의 크기 계산
+                for text_line in text_lines:
+                    temp_image = Image.new('RGB', (100, 100), color=(192, 192, 192))
+                    temp_draw = ImageDraw.Draw(temp_image)
+                    bbox = temp_draw.textbbox((0, 0), text_line, font=current_font)
+                    width = bbox[2] - bbox[0]
+                    height = bbox[3] - bbox[1]
+                    max_width = max(max_width, width)
+                    line_heights.append(height)
+                    total_height += height
 
-                # Create actual image
-                image = Image.new('RGB', (width + 20, height + 30), color=(255, 255, 255))
+                # 여러 줄을 위한 간격 추가
+                line_spacing = 5
+                total_height += line_spacing * (len(text_lines) - 1)
+
+                # 실제 이미지 생성
+                image = Image.new('RGB', (max_width + 20, total_height + 30), color=(255, 255, 255))
                 draw = ImageDraw.Draw(image)
-                draw.text((10, 10), line, font=current_font, fill=(0, 0, 102))
 
-                # Save image with sequential number
-                sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]  # Limit filename length
+                y_position = 10
+                for j, text_line in enumerate(text_lines):
+                    draw.text((10, y_position), text_line, font=current_font, fill=(0, 0, 102))
+                    y_position += line_heights[j] + line_spacing
+
+                sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]
                 output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{sanitized_line}.png')
                 image.save(output_path)
 
