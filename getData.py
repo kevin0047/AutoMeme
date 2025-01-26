@@ -1,3 +1,5 @@
+import json
+
 import winsound
 from threading import Thread
 from commentVideo import CommentVideoGenerator
@@ -152,6 +154,28 @@ class DataCollectorGUI:
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(text)
 
+    def clean_styled_content(self, content_path, styled_content_path):
+        # content.txt 읽기
+        with open(content_path, 'r', encoding='utf-8') as f:
+            content_lines = [line.strip() for line in f.readlines() if line.strip()]
+
+        # styled_content.txt 읽기
+        with open(styled_content_path, 'r', encoding='utf-8') as f:
+            styled_data = f.read()
+            lines = styled_data.split('\n')
+            title = lines[0]
+            styled_json = json.loads(lines[1])
+
+        # content.txt에 있는 텍스트만 필터링
+        filtered_styled = []
+        for item in styled_json:
+            text = item['text'].strip()
+            if any(text in line for line in content_lines):
+                filtered_styled.append(item)
+
+        # 결과 저장
+        with open(styled_content_path, 'w', encoding='utf-8') as f:
+            f.write(f"{title}\n{json.dumps(filtered_styled, ensure_ascii=False)}")
     def download_images(self, url):
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36",
@@ -227,101 +251,88 @@ class DataCollectorGUI:
 
         finally:
             self.progress['value'] = 90  # 프로그레스바 업데이트
+    def split_text(self, text):
+        if len(text) <= 40:
+            return [text]
+
+        # 문장을 20자씩 나누되, 공백을 기준으로 나누기
+        words = text.split()
+        lines = []
+        current_line = ""
+
+        for word in words:
+            if len(current_line) + len(word) + 1 <= 40:
+                current_line += " " + word if current_line else word
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+
+        if current_line:
+            lines.append(current_line)
+
+        return lines
 
     def generate_subtitles(self):
         try:
             input_file = f"{self.save_path.get()}/txt/content.txt"
+            styled_file = f"{self.save_path.get()}/txt/styled_content.txt"
             output_folder = f"{self.save_path.get()}/voice"
-            font_size = 30
 
-            if not os.path.exists(input_file):
-                messagebox.showerror("오류", "content.txt 파일을 찾을 수 없습니다.")
+            if not os.path.exists(input_file) or not os.path.exists(styled_file):
+                messagebox.showerror("오류", "필요한 텍스트 파일을 찾을 수 없습니다.")
                 return
 
             os.makedirs(output_folder, exist_ok=True)
 
-            try:
-                font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts')
-                regular_font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
-                bold_font = ImageFont.truetype(os.path.join(font_path, "malgunbd.ttf"), font_size)
-            except IOError:
-                regular_font = bold_font = ImageFont.load_default()
+            with open(styled_file, 'r', encoding='utf-8') as f:
+                styled_data = f.read().split('\n')[1]
+                style_info = json.loads(styled_data)
 
-            def split_text(text):
-                if len(text) <= 40:
-                    return [text]
-
-                # 문장을 20자씩 나누되, 공백을 기준으로 나누기
-                words = text.split()
-                lines = []
-                current_line = ""
-
-                for word in words:
-                    if len(current_line) + len(word) + 1 <= 40:
-                        current_line += " " + word if current_line else word
-                    else:
-                        if current_line:
-                            lines.append(current_line)
-                        current_line = word
-
-                if current_line:
-                    lines.append(current_line)
-
-                return lines
+            font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts')
 
             with open(input_file, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
 
-            valid_lines = [line for line in lines if line.strip() and not line.strip().replace(' ', '').isdigit()]
+            valid_lines = [line.strip() for line in lines if
+                           line.strip() and not line.strip().replace(' ', '').isdigit()]
             total_lines = len(valid_lines)
-            current_line = 0
             subtitle_counter = 1
 
-            for i, line in enumerate(lines):
-                line = line.strip()
-                if not line or line.replace(' ', '').isdigit():
-                    continue
+            for line in valid_lines:
+                style = next((item for item in style_info if item['text'].strip() in line), None)
 
-                current_font = bold_font if subtitle_counter == 1 else regular_font
+                if style:
+                    font_size = int(style['size'].replace('px', '')) + 30  # 기본 폰트 사이즈에 10 추가
+                    color = tuple(map(int, style['color'].strip('rgb()').split(',')))
+                    font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
+                else:
+                    font_size = 60  # 기본 폰트 사이즈도 40으로 변경 (30 + 10)
+                    color = (0, 0, 102)
+                    font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
 
-                # 텍스트를 20자 단위로 분할
-                text_lines = split_text(line)
-                max_width = 0
-                total_height = 0
-                line_heights = []
+                text_lines = self.split_text(line)
+                max_width = max(font.getlength(text_line) for text_line in text_lines)
+                line_height = font_size + 5
+                total_height = line_height * len(text_lines)
 
-                # 각 줄의 크기 계산
-                for text_line in text_lines:
-                    temp_image = Image.new('RGB', (100, 100), color=(192, 192, 192))
-                    temp_draw = ImageDraw.Draw(temp_image)
-                    bbox = temp_draw.textbbox((0, 0), text_line, font=current_font)
-                    width = bbox[2] - bbox[0]
-                    height = bbox[3] - bbox[1]
-                    max_width = max(max_width, width)
-                    line_heights.append(height)
-                    total_height += height
-
-                # 여러 줄을 위한 간격 추가
-                line_spacing = 5
-                total_height += line_spacing * (len(text_lines) - 1)
-
-                # 실제 이미지 생성
-                image = Image.new('RGB', (max_width + 20, total_height + 30), color=(255, 255, 255))
+                image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
                 draw = ImageDraw.Draw(image)
 
-                y_position = 10
-                for j, text_line in enumerate(text_lines):
-                    draw.text((10, y_position), text_line, font=current_font, fill=(0, 0, 102))
-                    y_position += line_heights[j] + line_spacing
+                y = 10
+                for text_line in text_lines:
+                    draw.text((10, y), text_line, font=font, fill=color)
+                    y += line_height
 
-                sanitized_line = re.sub(r'[\\/*?:"<>|]', '', line)[:50]
-                output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{sanitized_line}.png')
+                output_path = os.path.join(output_folder, 'subtitle_{}_{}.png'.format(
+                    subtitle_counter,
+                    re.sub('[\\\\/*?:"<>|]', '', line[:50])
+                ))
                 image.save(output_path)
 
-                current_line += 1
                 subtitle_counter += 1
-                self.progress['value'] = (current_line / total_lines) * 100
-                self.update_status(f"자막 생성 중... ({current_line}/{total_lines})")
+                self.progress['value'] = (subtitle_counter / total_lines) * 100
+                self.update_status(f"자막 생성 중... ({subtitle_counter}/{total_lines})")
                 self.root.update()
 
             self.update_status("자막 생성이 완료되었습니다!")
@@ -494,7 +505,29 @@ class DataCollectorGUI:
             content = re.sub("- dc official App|이미지 순서 ON|마우스 커서를 올리면|이미지 순서를 ON/OFF 할 수 있습니다.", "", element.text)
             # 빈 줄 제거
             content = '\n'.join(line for line in content.splitlines() if line.strip())
+            # 스타일 정보를 포함한 HTML 추출
+            styled_content = driver.execute_script("""
+                function getStyledText(element) {
+                    let result = [];
+                    for (let node of element.querySelectorAll('*')) {
+                        if (node.childNodes.length === 1 && node.childNodes[0].nodeType === Node.TEXT_NODE) {
+                            let style = window.getComputedStyle(node);
+                            result.push({
+                                text: node.textContent.trim(),
+                                color: style.color,
+                                size: style.fontSize,
+                                weight: style.fontWeight
+                            });
+                        }
+                    }
+                    return JSON.stringify(result);
+                }
+                return getStyledText(arguments[0]);
+            """, element)
 
+            # 스타일 정보가 포함된 텍스트 저장
+            with open(f"{base_path}/txt/styled_content.txt", 'w', encoding='utf-8') as f:
+                f.write(f"{title}\n{styled_content}\n")
             self.progress['value'] = 60
 
             # 댓글 추출 및 처리
@@ -567,7 +600,10 @@ class DataCollectorGUI:
                 self.update_status("댓글 영상 생성 완료!")
             except Exception as e:
                 self.update_status(f"댓글 영상 생성 실패: {str(e)}")
-
+            self.clean_styled_content(
+                f"{base_path}/txt/content.txt",
+                f"{base_path}/txt/styled_content.txt"
+            )
             self.download_images(self.url_entry.get())
             self.generate_subtitles()
             self.generate_tts()
