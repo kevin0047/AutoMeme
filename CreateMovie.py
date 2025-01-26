@@ -11,17 +11,17 @@ import winsound
 class VideoGenerator:
     def __init__(self, text_path, image_folder, output_path):
         self.text_path = text_path
-        self.image_folder = image_folder  # voice 폴더 (자막, 음성파일용)
+        self.image_folder = image_folder
         self.output_path = output_path
         self.temp_video_path = os.path.join(os.path.dirname(output_path), "temp_video.mp4")
         self.temp_audio_path = os.path.join(os.path.dirname(output_path), "temp_audio.wav")
         self.width = 1370
         self.height = 1080
         self.fps = 30
-        self.sequence_image_duration = 1  # 숫자로 불러온 이미지 표시 대기 시간 (초)
-        self.images_folder = r"C:\Users\ska00\Desktop\AutoMeme\Images"  # 순차 이미지 폴더
-        self.current_subtitles = []  # 현재 표시 중인 자막 리스트 추가
-        self.max_subtitles = 4  # 최대 자막 줄 수
+        self.sequence_image_duration = 1
+        self.images_folder = os.path.join(os.path.dirname(text_path), "..", "Images")  # 수정된 부분
+        self.current_subtitles = []
+        self.max_subtitles = 4
 
     def is_sequence_number(self, text):
         """문자열이 숫자로만 이루어져 있는지 확인"""
@@ -555,15 +555,38 @@ class VideoGenerator:
         winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
 
 
+import os
+
 
 def main():
-    text_path = r"C:\Users\ska00\Desktop\AutoMeme\txt\content.txt"
-    image_folder = r"C:\Users\ska00\Desktop\AutoMeme\voice"
-    output_path = r"C:\Users\ska00\Desktop\AutoMeme\output.mp4"
+    base_dir = r"C:\Users\ska00\Desktop\AutoMeme"
 
-    generator = VideoGenerator(text_path, image_folder, output_path)
-    generator.create_video()
-    generator.combine_videos()
+    # 숫자 폴더 찾기
+    folders = [f for f in os.listdir(base_dir) if f.isdigit()]
+    folders.sort(key=int)
+
+    for folder in folders:
+        folder_path = os.path.join(base_dir, folder)
+        output_path = os.path.join(folder_path, "output.mp4")
+
+        # 이미 영상이 있으면 스킵
+        if os.path.exists(output_path):
+            print(f"폴더 {folder}의 영상이 이미 존재합니다. 스킵합니다.")
+            continue
+
+        text_path = os.path.join(folder_path, "txt", "content.txt")
+        image_folder = os.path.join(folder_path, "voice")
+
+        try:
+            generator = VideoGenerator(text_path, image_folder, output_path)
+            generator.create_video()
+            generator.combine_videos()
+            print(f"폴더 {folder} 완료")
+        except Exception as e:
+            print(f"폴더 {folder} 처리 중 오류 발생: {e}")
+
+
+
 
 
 if __name__ == "__main__":

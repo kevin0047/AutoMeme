@@ -474,16 +474,28 @@ class DataCollectorGUI:
 
     def collect_data(self):
         try:
-            # 저장 경로의 모든 파일 삭제
-            base_path = self.save_path.get()
-            if os.path.exists(base_path):
-                for root, dirs, files in os.walk(base_path):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        try:
-                            os.remove(file_path)
-                        except Exception as e:
-                            self.update_status(f"파일 삭제 중 오류 발생: {str(e)}")
+            base_dir = self.save_path.get()
+
+            # Find next available folder number at root level
+            folder_num = 1
+            while os.path.exists(os.path.join(base_dir, str(folder_num))):
+                folder_num += 1
+
+            # Create main numbered folder
+            current_folder = os.path.join(base_dir, str(folder_num))
+            os.makedirs(current_folder)
+
+            # Create subdirectories
+            image_path = os.path.join(current_folder, "Images")
+            txt_path = os.path.join(current_folder, "txt")
+            voice_path = os.path.join(current_folder, "voice")
+
+            os.makedirs(image_path, exist_ok=True)
+            os.makedirs(txt_path, exist_ok=True)
+            os.makedirs(voice_path, exist_ok=True)
+
+            # Update save_path for this collection
+            self.save_path.set(current_folder)
 
             self.update_status("브라우저 실행 중...")
             options = webdriver.ChromeOptions()
@@ -503,30 +515,30 @@ class DataCollectorGUI:
             # 내용 추출
             element = driver.find_element(By.XPATH, '//div[@class="write_div"]')
             content = re.sub("- dc official App|이미지 순서 ON|마우스 커서를 올리면|이미지 순서를 ON/OFF 할 수 있습니다.", "", element.text)
-            # 빈 줄 제거
             content = '\n'.join(line for line in content.splitlines() if line.strip())
+
             # 스타일 정보를 포함한 HTML 추출
             styled_content = driver.execute_script("""
-                function getStyledText(element) {
-                    let result = [];
-                    for (let node of element.querySelectorAll('*')) {
-                        if (node.childNodes.length === 1 && node.childNodes[0].nodeType === Node.TEXT_NODE) {
-                            let style = window.getComputedStyle(node);
-                            result.push({
-                                text: node.textContent.trim(),
-                                color: style.color,
-                                size: style.fontSize,
-                                weight: style.fontWeight
-                            });
-                        }
-                    }
-                    return JSON.stringify(result);
-                }
-                return getStyledText(arguments[0]);
-            """, element)
+               function getStyledText(element) {
+                   let result = [];
+                   for (let node of element.querySelectorAll('*')) {
+                       if (node.childNodes.length === 1 && node.childNodes[0].nodeType === Node.TEXT_NODE) {
+                           let style = window.getComputedStyle(node);
+                           result.push({
+                               text: node.textContent.trim(),
+                               color: style.color,
+                               size: style.fontSize,
+                               weight: style.fontWeight
+                           });
+                       }
+                   }
+                   return JSON.stringify(result);
+               }
+               return getStyledText(arguments[0]);
+           """, element)
 
             # 스타일 정보가 포함된 텍스트 저장
-            with open(f"{base_path}/txt/styled_content.txt", 'w', encoding='utf-8') as f:
+            with open(os.path.join(txt_path, "styled_content.txt"), 'w', encoding='utf-8') as f:
                 f.write(f"{title}\n{styled_content}\n")
             self.progress['value'] = 60
 
@@ -534,10 +546,13 @@ class DataCollectorGUI:
             self.update_status("댓글 추출 중...")
             parent_elements = driver.find_elements(By.XPATH,
                                                    '//div[@class="clear cmt_txtbox"] | //div[@class="clear cmt_txtbox btn_reply_write_all"]')
-            filter_words = ["틱톡", "https", "실베", "kakao",".com","gall","store","MeritTV","도배","디시","디씨","갤러리","🍀","⭐","고고혓","@@"]  # 원하는 필터 단어 추가
+
+            filter_words = ["틱톡", "https", "실베", "kakao", ".com", "gall", "store", "MeritTV", "도배", "디시", "디씨", "갤러리",
+                            "🍀", "⭐", "고고혓", "@@"]
             seen_comments = set()
             is_first_comment = True
             comment_text = []
+
             for element in parent_elements:
                 comments = element.find_elements(By.XPATH, './/p[@class="usertxt ub-word"]')
                 for comment in comments:
@@ -565,19 +580,15 @@ class DataCollectorGUI:
 
             # 파일 저장
             self.update_status("파일 저장 중...")
-            base_path = self.save_path.get()
+            content_path = os.path.join(txt_path, "content.txt")
 
-            # 텍스트 저장
-            os.makedirs(f"{base_path}/txt", exist_ok=True)
-            content_path = f"{base_path}/txt/content.txt"
-
-            with open(content_path, 'a', encoding='utf-8') as f:
+            with open(content_path, 'w', encoding='utf-8') as f:
                 f.write(f"{title}\n{content}\n")
 
             # 정제된 텍스트 생성
             self.clean_and_process_text(content_path)
 
-            with open(f"{base_path}/txt/comment.txt", 'w', encoding='utf-8') as f:
+            with open(os.path.join(txt_path, "comment.txt"), 'w', encoding='utf-8') as f:
                 for comment in comment_text:
                     f.write(comment)
             driver.quit()
@@ -585,25 +596,27 @@ class DataCollectorGUI:
             # 댓글 영상 생성
             self.update_status("댓글 영상 생성 중...")
             try:
-                comment_file = f"{base_path}/txt/comment.txt"
-                video_output = f"{base_path}/output_comments.mp4"
+                comment_file = os.path.join(txt_path, "comment.txt")
+                video_output = os.path.join(current_folder, "output_comments.mp4")
                 generator = CommentVideoGenerator()
 
                 with open(comment_file, 'r', encoding='utf-8') as f:
                     comments = f.readlines()
 
                 for comment in comments:
-                    if comment.strip():  # 빈 줄 제외
+                    if comment.strip():
                         generator.add_comment(comment)
 
                 generator.create_video(video_output)
                 self.update_status("댓글 영상 생성 완료!")
             except Exception as e:
                 self.update_status(f"댓글 영상 생성 실패: {str(e)}")
+
             self.clean_styled_content(
-                f"{base_path}/txt/content.txt",
-                f"{base_path}/txt/styled_content.txt"
+                os.path.join(txt_path, "content.txt"),
+                os.path.join(txt_path, "styled_content.txt")
             )
+
             self.download_images(self.url_entry.get())
             self.generate_subtitles()
             self.generate_tts()
