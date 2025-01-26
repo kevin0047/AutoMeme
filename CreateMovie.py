@@ -1,5 +1,4 @@
-import tkinter as tk
-from tkinter import ttk
+
 import cv2
 import numpy as np
 from PIL import Image

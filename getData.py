@@ -26,12 +26,16 @@ class DataCollectorGUI:
         self.root.title("자료수집기")
         self.root.geometry("600x500")
 
-        # URL 입력
+        # URL 입력 프레임
         url_frame = ttk.LabelFrame(root, text="URL 입력", padding="10")
         url_frame.pack(fill="x", padx=10, pady=5)
 
         self.url_entry = ttk.Entry(url_frame, width=50)
         self.url_entry.pack(side="left", padx=5)
+
+        # URL 리스트 파일 선택 버튼
+        self.url_file_button = ttk.Button(url_frame, text="URL 파일 선택", command=self.select_url_file)
+        self.url_file_button.pack(side="right", padx=5)
 
         # 경로 설정
         path_frame = ttk.LabelFrame(root, text="저장 경로 설정", padding="10")
@@ -56,6 +60,17 @@ class DataCollectorGUI:
         self.start_button = ttk.Button(root, text="수집 시작", command=self.start_collection)
         self.start_button.pack(pady=10)
 
+    def select_url_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
+        if file_path:
+            with open(file_path, 'r') as f:
+                urls = [url.strip() for url in f.readlines() if url.strip()]
+
+            for url in urls:
+                self.url_entry.delete(0, tk.END)
+                self.url_entry.insert(0, url)
+                self.collect_data()  # start_collection() 대신 직접 collect_data() 호출
+                time.sleep(5)  # 각 작업 사이 간격 늘림
     def update_status(self, message):
         self.status_text.insert(tk.END, f"{message}\n")
         self.status_text.see(tk.END)
@@ -261,7 +276,7 @@ class DataCollectorGUI:
         current_line = ""
 
         for word in words:
-            if len(current_line) + len(word) + 1 <= 40:
+            if len(current_line) + len(word) + 1 <= 25:
                 current_line += " " + word if current_line else word
             else:
                 if current_line:
@@ -474,27 +489,28 @@ class DataCollectorGUI:
 
     def collect_data(self):
         try:
-            base_dir = self.save_path.get()
+            base_dir = "C:/Users/ska00/Desktop/AutoMeme"  # 항상 기본 경로부터 시작
 
-            # Find next available folder number at root level
+            # 다음 사용 가능한 폴더 번호 찾기
             folder_num = 1
             while os.path.exists(os.path.join(base_dir, str(folder_num))):
                 folder_num += 1
 
-            # Create main numbered folder
+
+            # 새 폴더 생성
             current_folder = os.path.join(base_dir, str(folder_num))
             os.makedirs(current_folder)
 
-            # Create subdirectories
+            # 하위 디렉토리 생성
             image_path = os.path.join(current_folder, "Images")
             txt_path = os.path.join(current_folder, "txt")
             voice_path = os.path.join(current_folder, "voice")
 
-            os.makedirs(image_path, exist_ok=True)
-            os.makedirs(txt_path, exist_ok=True)
-            os.makedirs(voice_path, exist_ok=True)
+            os.makedirs(image_path)
+            os.makedirs(txt_path)
+            os.makedirs(voice_path)
 
-            # Update save_path for this collection
+            # 현재 작업 경로 업데이트
             self.save_path.set(current_folder)
 
             self.update_status("브라우저 실행 중...")

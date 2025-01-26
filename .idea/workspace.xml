@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="자막생성시 스타일도 적용하도록 변경&#10;자막 위치 수정필요">
+    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="반복작업 되도록 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreateMovie.py" beforeDir="false" afterPath="$PROJECT_DIR$/CreateMovie.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/getData.py" beforeDir="false" afterPath="$PROJECT_DIR$/getData.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -171,7 +172,15 @@
       <option name="project" value="LOCAL" />
       <updated>1737895009626</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="반복작업 되도록 수정">
+      <option name="closed" value="true" />
+      <created>1737902983964</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1737902983964</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -221,6 +230,7 @@
     <MESSAGE value="자막4개로 나오게" />
     <MESSAGE value="자막4개로 나오게2" />
     <MESSAGE value="자막생성시 스타일도 적용하도록 변경&#10;자막 위치 수정필요" />
-    <option name="LAST_COMMIT_MESSAGE" value="자막생성시 스타일도 적용하도록 변경&#10;자막 위치 수정필요" />
+    <MESSAGE value="반복작업 되도록 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="반복작업 되도록 수정" />
   </component>
 </project>
