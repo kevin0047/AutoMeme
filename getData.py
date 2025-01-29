@@ -288,6 +288,45 @@ class DataCollectorGUI:
 
         return lines
 
+    def split_title_text(self, text, max_width=1370):
+        font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts', "malgun.ttf")
+        font_size = 90  # 초기 폰트 크기
+        font = ImageFont.truetype(font_path, font_size)
+
+        # 텍스트 길이가 max_width를 초과하는지 확인
+        text_width = font.getlength(text)
+
+        if text_width <= max_width:
+            return [text], font_size
+
+        # max_width를 초과하면 폰트 크기를 조절
+        while text_width > max_width and font_size > 40:  # 최소 폰트 크기는 40
+            font_size -= 5
+            font = ImageFont.truetype(font_path, font_size)
+            text_width = font.getlength(text)
+
+        # 여전히 max_width를 초과하면 텍스트를 분할
+        if text_width > max_width:
+            words = text.split()
+            lines = []
+            current_line = ""
+
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                if font.getlength(test_line) <= max_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+
+            if current_line:
+                lines.append(current_line)
+
+            return lines, font_size
+
+        return [text], font_size
+
     def generate_subtitles(self):
         try:
             input_file = f"{self.save_path.get()}/txt/content.txt"
@@ -315,29 +354,48 @@ class DataCollectorGUI:
             subtitle_counter = 1
 
             for line in valid_lines:
-                style = next((item for item in style_info if item['text'].strip() in line), None)
+                # 첫 번째 줄(제목)인 경우 특별 처리
+                if line == valid_lines[0]:  # 제목
+                    text_lines, title_font_size = self.split_title_text(line)
+                    font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), title_font_size)
+                    color = (0, 0, 102)  # 제목 색상
 
-                if style:
-                    font_size = int(style['size'].replace('px', '')) + 30  # 기본 폰트 사이즈에 10 추가
-                    color = tuple(map(int, style['color'].strip('rgb()').split(',')))
-                    font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
+                    line_height = title_font_size + 5
+                    total_height = line_height * len(text_lines)
+                    max_width = max(font.getlength(text_line) for text_line in text_lines)
+
+                    image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
+                    draw = ImageDraw.Draw(image)
+
+                    y = 10
+                    for text_line in text_lines:
+                        draw.text((10, y), text_line, font=font, fill=color)
+                        y += line_height
                 else:
-                    font_size = 60  # 기본 폰트 사이즈도 40으로 변경 (30 + 10)
-                    color = (0, 0, 102)
-                    font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
+                    # 기존의 일반 텍스트 처리 로직
+                    style = next((item for item in style_info if item['text'].strip() in line), None)
 
-                text_lines = self.split_text(line)
-                max_width = max(font.getlength(text_line) for text_line in text_lines)
-                line_height = font_size + 5
-                total_height = line_height * len(text_lines)
+                    if style:
+                        font_size = int(style['size'].replace('px', '')) + 30
+                        color = tuple(map(int, style['color'].strip('rgb()').split(',')))
+                        font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
+                    else:
+                        font_size = 60
+                        color = (0, 0, 102)
+                        font = ImageFont.truetype(os.path.join(font_path, "malgun.ttf"), font_size)
 
-                image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
-                draw = ImageDraw.Draw(image)
+                    text_lines = self.split_text(line)
+                    max_width = max(font.getlength(text_line) for text_line in text_lines)
+                    line_height = font_size + 5
+                    total_height = line_height * len(text_lines)
 
-                y = 10
-                for text_line in text_lines:
-                    draw.text((10, y), text_line, font=font, fill=color)
-                    y += line_height
+                    image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
+                    draw = ImageDraw.Draw(image)
+
+                    y = 10
+                    for text_line in text_lines:
+                        draw.text((10, y), text_line, font=font, fill=color)
+                        y += line_height
 
                 output_path = os.path.join(output_folder, 'subtitle_{}_{}.png'.format(
                     subtitle_counter,
@@ -387,7 +445,7 @@ class DataCollectorGUI:
             FORMAT = pyaudio.paInt16
             CHANNELS = 2
             RATE = 44100
-            CHARS_PER_SECOND = 7
+            CHARS_PER_SECOND = 5
             ADDITIONAL_DELAY = 1.5
 
             total_sentences = len([s for s in sentences if s.strip()])
