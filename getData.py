@@ -132,7 +132,7 @@ class DataCollectorGUI:
             clean_line = re.sub(r'\([^)]*\)', '', clean_line)
             clean_line = clean_line.replace('ㅋ', '.').replace('ㅂㄷ', '부들') \
                 .replace('ㄹㅈㄷ', '레전드').replace('ㄱㅊ', '괜찮') \
-                .replace('ㄳ', '감사').replace('ㄱㅅ', '감사') \
+                .replace('ㅈㄹ', '지랄').replace('+', '.').replace('ㄳ', '감사').replace('ㄱㅅ', '감사') \
                 .replace('ㅇㅇ', '.').replace('ㅉㅉ', '쯧쯧') \
                 .replace('ㄷ', '.').replace('ㄹㅇ', '레알') \
                 .replace('ㅠ', '.').replace('ㅜ', '.') \
@@ -288,7 +288,7 @@ class DataCollectorGUI:
 
         return lines
 
-    def split_title_text(self, text, max_width=1370):
+    def split_title_text(self, text, max_width=1300):
         font_path = os.path.join(os.environ['SYSTEMROOT'], 'Fonts', "malgun.ttf")
         font_size = 90  # 초기 폰트 크기
         font = ImageFont.truetype(font_path, font_size)
@@ -372,7 +372,7 @@ class DataCollectorGUI:
                         draw.text((10, y), text_line, font=font, fill=color)
                         y += line_height
                 else:
-                    # 기존의 일반 텍스트 처리 로직
+                    # 일반 텍스트 처리 로직
                     style = next((item for item in style_info if item['text'].strip() in line), None)
 
                     if style:
@@ -389,13 +389,21 @@ class DataCollectorGUI:
                     line_height = font_size + 5
                     total_height = line_height * len(text_lines)
 
-                    image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
+                    # 원본 이미지 생성
+                    original_width = int(max_width) + 20
+                    image = Image.new('RGB', (original_width, total_height + 20), color=(255, 255, 255))
                     draw = ImageDraw.Draw(image)
 
                     y = 10
                     for text_line in text_lines:
                         draw.text((10, y), text_line, font=font, fill=color)
                         y += line_height
+
+                    # 너비가 1350을 초과하는 경우 이미지 크기 조정
+                    if original_width > 1350:
+                        ratio = 1350 / original_width
+                        new_height = int((total_height + 20) * ratio)
+                        image = image.resize((1350, new_height), Image.Resampling.LANCZOS)
 
                 output_path = os.path.join(output_folder, 'subtitle_{}_{}.png'.format(
                     subtitle_counter,
