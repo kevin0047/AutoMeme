@@ -354,6 +354,18 @@ class DataCollectorGUI:
             subtitle_counter = 1
 
             for line in valid_lines:
+                if not line.strip():
+                    continue
+
+                if line.startswith("더미 텍스트"):
+                    width = 1350
+                    height = 100
+                    image = Image.new('RGB', (width, height), color=(255, 255, 255))
+                    output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{line[:15]}.png')
+                    image.save(output_path)
+                    subtitle_counter += 1
+                    continue
+
                 # 첫 번째 줄(제목)인 경우 특별 처리
                 if line == valid_lines[0]:  # 제목
                     text_lines, title_font_size = self.split_title_text(line)
@@ -463,6 +475,18 @@ class DataCollectorGUI:
                 if not sentence.strip():
                     continue
 
+                if sentence.startswith("더미 텍스트"):
+                    # 3초 무음 파일 생성
+                    silent_audio = AudioSegment.silent(duration=3000)
+                    final_filename = os.path.join(output_folder, f"tts{i}_dummy.wav")
+                    silent_audio.export(final_filename, format="wav")
+
+                    current_sentence += 1
+                    self.progress['value'] = (current_sentence / total_sentences) * 100
+                    self.update_status(f"TTS 생성 중... ({current_sentence}/{total_sentences})")
+                    self.root.update()
+                    continue
+
                 # Find and clear input box
                 input_box = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, '//*[@id="txtSource"]')))
@@ -553,6 +577,64 @@ class DataCollectorGUI:
             if 'p' in locals():
                 p.terminate()
 
+    def add_dummy_content(self):
+        try:
+            content_path = f"{self.save_path.get()}/txt/content.txt"
+            recontent_path = f"{self.save_path.get()}/txt/recontent.txt"
+
+            # content.txt 읽기
+            with open(content_path, 'r', encoding='utf-8') as f:
+                lines = [line.strip() for line in f.readlines() if line.strip()]
+
+            # 한 줄(제목)만 있는 경우
+            if len(lines) == 1:
+                self.update_status("컨텐츠가 부족하여 더미 데이터를 추가합니다...")
+
+                # content.txt에 더미 라인 추가
+                with open(content_path, 'a', encoding='utf-8') as f:
+                    f.write("\n더미 텍스트\n")
+
+                # recontent.txt에 더미 라인 추가
+                with open(recontent_path, 'a', encoding='utf-8') as f:
+                    f.write("\n더미 텍스트.\n")
+
+                # styled_content.txt 처리
+                styled_path = f"{self.save_path.get()}/txt/styled_content.txt"
+                try:
+                    with open(styled_path, 'r', encoding='utf-8') as f:
+                        styled_lines = f.readlines()
+                        if len(styled_lines) >= 2:
+                            title = styled_lines[0].strip()
+                            try:
+                                styled_data = json.loads(styled_lines[1].strip())
+                            except json.JSONDecodeError:
+                                styled_data = []
+                        else:
+                            title = lines[0]
+                            styled_data = []
+                except FileNotFoundError:
+                    title = lines[0]
+                    styled_data = []
+
+                # 더미 스타일 정보 추가 (1개만)
+                dummy_style = [{
+                    "text": "더미 텍스트",
+                    "color": "rgb(255,255,255)",
+                    "size": "60px",
+                    "weight": "400"
+                }]
+                styled_data.extend(dummy_style)
+
+                # 업데이트된 스타일 정보 저장
+                with open(styled_path, 'w', encoding='utf-8') as f:
+                    f.write(f"{title}\n{json.dumps(styled_data, ensure_ascii=False)}")
+
+                return True
+            return False
+
+        except Exception as e:
+            self.update_status(f"더미 데이터 추가 중 오류 발생: {str(e)}")
+            return False
     def collect_data(self):
         try:
             base_dir = "C:/Users/ska00/Desktop/AutoMeme"  # 항상 기본 경로부터 시작
@@ -694,11 +776,17 @@ class DataCollectorGUI:
             except Exception as e:
                 self.update_status(f"댓글 영상 생성 실패: {str(e)}")
 
+            self.clean_and_process_text(
+                os.path.join(txt_path, "content.txt")
+            )
+
+            # 더미 데이터 추가 여부 확인
+            dummy_added = self.add_dummy_content()
+
             self.clean_styled_content(
                 os.path.join(txt_path, "content.txt"),
                 os.path.join(txt_path, "styled_content.txt")
             )
-
             self.download_images(self.url_entry.get())
             self.generate_subtitles()
             self.generate_tts()
