@@ -239,6 +239,7 @@ class VideoGenerator:
             print("텍스트 파일이 비어있습니다.")
             return
 
+
         print("텍스트 파일 내용:")
         for i, line in enumerate(lines):
             print(f"{i + 1}: {line}")

@@ -379,6 +379,7 @@ class DataCollectorGUI:
                     image = Image.new('RGB', (int(max_width) + 20, total_height + 20), color=(255, 255, 255))
                     draw = ImageDraw.Draw(image)
 
+
                     y = 10
                     for text_line in text_lines:
                         draw.text((10, y), text_line, font=font, fill=color)

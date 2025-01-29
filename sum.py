@@ -77,6 +77,7 @@ def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file
         # 임시 출력 파일
         temp_output = f"temp_with_bgm_{folder}.mp4"
 
+
         # 배경음악 추가
         cmd = [
             'ffmpeg',
