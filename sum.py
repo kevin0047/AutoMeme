@@ -83,7 +83,7 @@ def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file
             '-i', video_path,
             '-i', bgm_file,
             '-filter_complex',
-            f'[1:a]atrim=start={start_time}:duration={video_duration},volume=0.07[bgm];[0:a][bgm]amix=duration=first:dropout_transition=0',
+            f'[1:a]atrim=start={start_time}:duration={video_duration},volume=0.05[bgm];[0:a][bgm]amix=duration=first:dropout_transition=0',
             '-c:v', 'copy',
             '-shortest',
             temp_output
