@@ -358,8 +358,8 @@ class DataCollectorGUI:
                     continue
 
                 if line.startswith("더미 텍스트"):
-                    width = 1350
-                    height = 100
+                    width = 135
+                    height = 10
                     image = Image.new('RGB', (width, height), color=(255, 255, 255))
                     output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{line[:15]}.png')
                     image.save(output_path)
@@ -592,11 +592,11 @@ class DataCollectorGUI:
 
                 # content.txt에 더미 라인 추가
                 with open(content_path, 'a', encoding='utf-8') as f:
-                    f.write("\n더미 텍스트\n")
+                    f.write("더미 텍스트")
 
                 # recontent.txt에 더미 라인 추가
                 with open(recontent_path, 'a', encoding='utf-8') as f:
-                    f.write("\n더미 텍스트.\n")
+                    f.write("더미 텍스트.")
 
                 # styled_content.txt 처리
                 styled_path = f"{self.save_path.get()}/txt/styled_content.txt"

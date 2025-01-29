@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="일반텍스트도 너비가 영상비율넘어가면 축소되게 변경">
+    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="제목만 있을때 더미데이터 생성해서 올바르게 동작하도록 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/getData.py" beforeDir="false" afterPath="$PROJECT_DIR$/getData.py" afterDir="false" />
     </list>
@@ -236,7 +236,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738160340166</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="제목만 있을때 더미데이터 생성해서 올바르게 동작하도록 수정">
+      <option name="closed" value="true" />
+      <created>1738164201586</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1738164201586</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -291,6 +299,7 @@
     <MESSAGE value="브금 랜덤구간 적용으로 변경" />
     <MESSAGE value="제목생성시 픽셀수넘어가면 축소하게 수정" />
     <MESSAGE value="일반텍스트도 너비가 영상비율넘어가면 축소되게 변경" />
-    <option name="LAST_COMMIT_MESSAGE" value="일반텍스트도 너비가 영상비율넘어가면 축소되게 변경" />
+    <MESSAGE value="제목만 있을때 더미데이터 생성해서 올바르게 동작하도록 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="제목만 있을때 더미데이터 생성해서 올바르게 동작하도록 수정" />
   </component>
 </project>
