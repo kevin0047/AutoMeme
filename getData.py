@@ -1,5 +1,5 @@
 import json
-
+import threading
 import winsound
 from threading import Thread
 from commentVideo import CommentVideoGenerator
@@ -71,9 +71,16 @@ class DataCollectorGUI:
                 self.url_entry.insert(0, url)
                 self.collect_data()  # start_collection() 대신 직접 collect_data() 호출
                 time.sleep(5)  # 각 작업 사이 간격 늘림
+
     def update_status(self, message):
-        self.status_text.insert(tk.END, f"{message}\n")
-        self.status_text.see(tk.END)
+        def _update():
+            self.status_text.insert(tk.END, f"{message}\n")
+            self.status_text.see(tk.END)
+
+        if threading.current_thread() is threading.main_thread():
+            _update()
+        else:
+            self.root.after(0, _update)
 
     def start_collection(self):
         if not self.url_entry.get():
@@ -266,6 +273,69 @@ class DataCollectorGUI:
 
         finally:
             self.progress['value'] = 90  # 프로그레스바 업데이트
+
+    def convert_webp_files(self):
+        try:
+            image_path = f"{self.save_path.get()}/Images"
+            webp_files = [f for f in os.listdir(image_path) if f.lower().endswith('.webp')]
+
+            if not webp_files:
+                return
+
+            self.update_status("WebP 파일 변환 시작...")
+            total_files = len(webp_files)
+
+            for index, webp_file in enumerate(webp_files, 1):
+                webp_path = os.path.join(image_path, webp_file)
+
+                try:
+                    # 이미지 로드
+                    img = Image.open(webp_path)
+
+                    # 애니메이션 여부 확인
+                    is_animated = hasattr(img, 'n_frames') and img.n_frames > 1
+
+                    # 파일명 설정 (확장자만 변경)
+                    base_name = os.path.splitext(webp_file)[0]
+                    new_path = os.path.join(image_path,
+                                            f"{base_name}.{'gif' if is_animated else 'png'}")
+
+                    if is_animated:
+                        # 애니메이션 WebP를 GIF로 변환
+                        frames = []
+                        try:
+                            for frame in range(img.n_frames):
+                                img.seek(frame)
+                                frames.append(img.convert('RGBA'))
+                            frames[0].save(
+                                new_path,
+                                save_all=True,
+                                append_images=frames[1:],
+                                duration=img.info.get('duration', 100),
+                                loop=0
+                            )
+                        except Exception as e:
+                            self.update_status(f"GIF 변환 중 오류: {str(e)}")
+                    else:
+                        # 정적 WebP를 PNG로 변환
+                        img.convert('RGBA').save(new_path, 'PNG')
+
+                    # 원본 WebP 파일 삭제
+                    img.close()
+                    os.remove(webp_path)
+
+                    self.progress['value'] = (index / total_files) * 100
+                    self.update_status(f"WebP 파일 변환 중... ({index}/{total_files})")
+                    self.root.update()
+
+                except Exception as e:
+                    self.update_status(f"파일 변환 중 오류 발생: {webp_file} - {str(e)}")
+                    continue
+
+            self.update_status("WebP 파일 변환 완료!")
+
+        except Exception as e:
+            self.update_status(f"WebP 변환 프로세스 중 오류 발생: {str(e)}")
     def split_text(self, text):
         if len(text) <= 40:
             return [text]
@@ -789,6 +859,7 @@ class DataCollectorGUI:
                 os.path.join(txt_path, "styled_content.txt")
             )
             self.download_images(self.url_entry.get())
+            self.convert_webp_files()
             self.generate_subtitles()
             self.generate_tts()
             self.progress['value'] = 100

@@ -142,7 +142,7 @@ def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file
 # 사용 예시
 base_folder = r"C:\Users\ska00\Desktop\AutoMeme"
 output_file = r"C:\Users\ska00\Desktop\AutoMeme\final_merged.mp4"
-transition_video = "젠존제전환.mp4"
+transition_video = "이리전환.mp4"
 bgm_folder = r"C:\Users\ska00\PycharmProjects\AutoMeme\음악"
 
 merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file)
