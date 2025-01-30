@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="진짜 최종">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/getData.py" beforeDir="false" afterPath="$PROJECT_DIR$/getData.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sum.py" beforeDir="false" afterPath="$PROJECT_DIR$/sum.py" afterDir="false" />
-    </list>
+    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="webp gif로변환되게 수정" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -269,7 +265,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738165329024</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="webp gif로변환되게 수정">
+      <option name="closed" value="true" />
+      <created>1738237102759</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1738237102759</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -327,6 +331,7 @@
     <MESSAGE value="제목만 있을때 더미데이터 생성해서 올바르게 동작하도록 수정" />
     <MESSAGE value="더미데이터 이미지 크기변경" />
     <MESSAGE value="진짜 최종" />
-    <option name="LAST_COMMIT_MESSAGE" value="진짜 최종" />
+    <MESSAGE value="webp gif로변환되게 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="webp gif로변환되게 수정" />
   </component>
 </project>
