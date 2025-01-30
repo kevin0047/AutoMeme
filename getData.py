@@ -9,7 +9,6 @@ from os.path import getsize
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image, ImageDraw, ImageFont
-import os
 import re
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -18,8 +17,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import pyaudio
 import wave
 from pydub import AudioSegment
-from pydub.silence import split_on_silence, detect_nonsilent
+from pydub.silence import split_on_silence
 import time
+import cv2
+import numpy as np
+import os
 class DataCollectorGUI:
     def __init__(self, root):
         self.root = root
@@ -139,7 +141,7 @@ class DataCollectorGUI:
             clean_line = re.sub(r'\([^)]*\)', '', clean_line)
             clean_line = clean_line.replace('ㅋ', '.').replace('ㅂㄷ', '부들') \
                 .replace('ㄹㅈㄷ', '레전드').replace('ㄱㅊ', '괜찮') \
-                .replace('ㅈㄹ', '지랄').replace('+', '.').replace('ㄳ', '감사').replace('ㄱㅅ', '감사') \
+                .replace('ㅇㅈㄹ', '이지랄').replace('ㅈㄹ', '지랄').replace('+', '.').replace('ㄳ', '감사').replace('ㄱㅅ', '감사') \
                 .replace('ㅇㅇ', '.').replace('ㅉㅉ', '쯧쯧') \
                 .replace('ㄷ', '.').replace('ㄹㅇ', '레알') \
                 .replace('ㅠ', '.').replace('ㅜ', '.') \
@@ -298,24 +300,41 @@ class DataCollectorGUI:
                     # 파일명 설정 (확장자만 변경)
                     base_name = os.path.splitext(webp_file)[0]
                     new_path = os.path.join(image_path,
-                                            f"{base_name}.{'gif' if is_animated else 'png'}")
+                                            f"{base_name}.{'mp4' if is_animated else 'png'}")
 
                     if is_animated:
-                        # 애니메이션 WebP를 GIF로 변환
+                        # 애니메이션 WebP를 MP4로 변환
                         frames = []
                         try:
                             for frame in range(img.n_frames):
                                 img.seek(frame)
-                                frames.append(img.convert('RGBA'))
-                            frames[0].save(
-                                new_path,
-                                save_all=True,
-                                append_images=frames[1:],
-                                duration=img.info.get('duration', 100),
-                                loop=0
-                            )
+                                frame_img = img.convert('RGBA')
+                                # RGBA를 BGR로 변환
+                                frame_array = np.array(frame_img)
+                                # 알파 채널이 있는 경우 흰색 배경으로 합성
+                                if frame_array.shape[2] == 4:
+                                    background = np.ones((frame_array.shape[0], frame_array.shape[1], 3),
+                                                         dtype=np.uint8) * 255
+                                    alpha = frame_array[:, :, 3:4] / 255.0
+                                    frame_array = frame_array[:, :, :3]
+                                    frame_array = (frame_array * alpha + background * (1 - alpha)).astype(np.uint8)
+                                else:
+                                    frame_array = frame_array[:, :, :3]
+                                frame_array = cv2.cvtColor(frame_array, cv2.COLOR_RGB2BGR)
+                                frames.append(frame_array)
+
+                            # MP4 파일로 저장
+                            height, width = frames[0].shape[:2]
+                            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                            fps = 1000 / img.info.get('duration', 100)  # duration은 밀리초 단위
+                            out = cv2.VideoWriter(new_path, fourcc, fps, (width, height))
+
+                            for frame in frames:
+                                out.write(frame)
+                            out.release()
+
                         except Exception as e:
-                            self.update_status(f"GIF 변환 중 오류: {str(e)}")
+                            self.update_status(f"MP4 변환 중 오류: {str(e)}")
                     else:
                         # 정적 WebP를 PNG로 변환
                         img.convert('RGBA').save(new_path, 'PNG')
