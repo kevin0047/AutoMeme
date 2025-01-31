@@ -43,7 +43,7 @@ class DataCollectorGUI:
         path_frame = ttk.LabelFrame(root, text="저장 경로 설정", padding="10")
         path_frame.pack(fill="x", padx=10, pady=5)
 
-        self.save_path = tk.StringVar(value="C:/Users/ska00/Desktop/AutoMeme")
+        self.save_path = tk.StringVar(value="C:/Users/ska0047/Desktop/AutoMeme")
         path_entry = ttk.Entry(path_frame, textvariable=self.save_path, width=50)
         path_entry.pack(side="left", padx=5)
 
@@ -727,7 +727,7 @@ class DataCollectorGUI:
             return False
     def collect_data(self):
         try:
-            base_dir = "C:/Users/ska00/Desktop/AutoMeme"  # 항상 기본 경로부터 시작
+            base_dir = "C:/Users/ska0047/Desktop/AutoMeme"  # 항상 기본 경로부터 시작
 
             # 다음 사용 가능한 폴더 번호 찾기
             folder_num = 1

@@ -76,24 +76,23 @@ class VideoGenerator:
             frames = []
 
             # 비디오 정보 가져오기
-            fps = cap.get(cv2.CAP_PROP_FPS)
+            original_fps = cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            duration = frame_count / fps
+            duration = frame_count / original_fps
 
-            # 모든 프레임 읽기
+            # 각 프레임 읽기
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                # BGRA 형식으로 변환
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
                 frames.append(frame)
 
             cap.release()
-            return frames, duration
+            return frames, duration, original_fps
         except Exception as e:
             print(f"비디오 처리 중 오류 발생: {e}")
-            return None, None
+            return None, None, None
 
     def find_tts_file(self, index):
         """해당 인덱스의 TTS 파일 찾기"""
@@ -172,8 +171,8 @@ class VideoGenerator:
                 frames, durations, total_duration = self.get_gif_info(image_path)
                 return frames, durations, total_duration, 'gif'
             elif ext == '.mp4':
-                frames, duration = self.get_video_info(image_path)
-                return frames, None, duration, 'mp4'
+                frames, duration, original_fps = self.get_video_info(image_path)
+                return frames, duration, original_fps, 'mp4'  # original_fps 추가
             else:
                 pil_image = Image.open(image_path)
                 pil_image = pil_image.convert('RGBA')
@@ -289,40 +288,66 @@ class VideoGenerator:
             result = self.read_image_with_pil(first_image_path)
             if result[3] == 'gif':
                 frames, durations, total_duration, _ = result
+                frame_index = 0
+                elapsed_time = 0
+
+                # GIF의 실제 FPS 계산
+                gif_fps = len(frames) / total_duration
+                frame_interval = gif_fps / self.fps
+
                 for frame_index in range(len(frames)):
-                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                    current_frame = self.resize_image(frames[frame_index])
+                    if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
+                        frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                        current_frame = self.resize_image(frames[frame_index])
 
-                    # 제목 표시
-                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                        # 제목 표시
+                        self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
 
-                    # GIF 프레임 표시
-                    y_offset = (self.height - current_frame.shape[0]) // 2
-                    x_offset = (self.width - current_frame.shape[1]) // 2
-                    self.overlay_image(frame, current_frame, y_offset, x_offset)
+                        # GIF 프레임 표시
+                        y_offset = (self.height - current_frame.shape[0]) // 2
+                        x_offset = (self.width - current_frame.shape[1]) // 2
+                        self.overlay_image(frame, current_frame, y_offset, x_offset)
 
-                    frame_duration_sec = durations[frame_index] / 1000.0
-                    for _ in range(int(self.fps * frame_duration_sec)):
                         out.write(frame)
+
                 current_time += total_duration * 1000
 
-            elif result[3] == 'mp4':
-                frames, _, duration, _ = result
-                for frame in frames:
-                    resized_frame = self.resize_image(frame)
-                    base_frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
 
-                    # 제목 표시
-                    self.overlay_image(base_frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
 
-                    # 비디오 프레임 표시
-                    y_offset = (self.height - resized_frame.shape[0]) // 2
-                    x_offset = (self.width - resized_frame.shape[1]) // 2
-                    self.overlay_image(base_frame, resized_frame, y_offset, x_offset)
 
-                    out.write(base_frame)
-                current_time += duration * 1000
+            elif result[3] == 'mp4':  # MP4 파일
 
+                frames, duration, original_fps, _ = result
+
+                if frames is not None and duration is not None and original_fps is not None:
+
+                    frame_count = len(frames)
+
+                    frame_interval = original_fps / self.fps
+
+                    for frame_index in range(frame_count):
+
+                        if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
+
+                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+
+                            current_frame = self.resize_image(frames[frame_index])
+
+                            # 제목 표시
+
+                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
+                            # 비디오 프레임 표시
+
+                            y_offset = (self.height - current_frame.shape[0]) // 2
+
+                            x_offset = (self.width - current_frame.shape[1]) // 2
+
+                            self.overlay_image(frame, current_frame, y_offset, x_offset)
+
+                            out.write(frame)
+
+                    current_time += duration * 1000
             else:  # 일반 이미지
                 current_center_img = result[0]
                 if current_center_img is not None:
@@ -356,51 +381,68 @@ class VideoGenerator:
                 if sequence_img_path:
                     result = self.read_image_with_pil(sequence_img_path)
 
-                    if result[3] == 'gif':  # GIF 파일
+                    if result[3] == 'gif':
                         frames, durations, total_duration, _ = result
                         frame_index = 0
                         elapsed_time = 0
 
-                        while elapsed_time < total_duration:
-                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                            current_frame = self.resize_image(frames[frame_index])
+                        # GIF의 실제 FPS 계산
+                        gif_fps = len(frames) / total_duration
+                        frame_interval = gif_fps / self.fps
 
-                            # 제목 표시
-                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                        for frame_index in range(len(frames)):
+                            if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
+                                frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                                current_frame = self.resize_image(frames[frame_index])
 
-                            # GIF 프레임 표시
-                            y_offset = (self.height - current_frame.shape[0]) // 2
-                            x_offset = (self.width - current_frame.shape[1]) // 2
-                            self.overlay_image(frame, current_frame, y_offset, x_offset)
+                                # 제목 표시
+                                self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
 
-                            frame_duration_sec = durations[frame_index] / 1000.0
-                            for _ in range(int(self.fps * frame_duration_sec)):
+                                # GIF 프레임 표시
+                                y_offset = (self.height - current_frame.shape[0]) // 2
+                                x_offset = (self.width - current_frame.shape[1]) // 2
+                                self.overlay_image(frame, current_frame, y_offset, x_offset)
+
                                 out.write(frame)
-
-                            elapsed_time += frame_duration_sec
-                            frame_index = (frame_index + 1) % len(frames)
 
                         current_time += total_duration * 1000
 
+
+
+
                     elif result[3] == 'mp4':  # MP4 파일
-                        frames, _, duration, _ = result
-                        frame_count = len(frames)
 
-                        for frame_index in range(frame_count):
-                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                            current_frame = self.resize_image(frames[frame_index])
+                        frames, duration, original_fps, _ = result
 
-                            # 제목 표시
-                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                        if frames is not None and duration is not None and original_fps is not None:
 
-                            # 비디오 프레임 표시
-                            y_offset = (self.height - current_frame.shape[0]) // 2
-                            x_offset = (self.width - current_frame.shape[1]) // 2
-                            self.overlay_image(frame, current_frame, y_offset, x_offset)
+                            frame_count = len(frames)
 
-                            out.write(frame)
+                            frame_interval = original_fps / self.fps
 
-                        current_time += duration * 1000
+                            for frame_index in range(frame_count):
+
+                                if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
+
+                                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+
+                                    current_frame = self.resize_image(frames[frame_index])
+
+                                    # 제목 표시
+
+                                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+
+                                    # 비디오 프레임 표시
+
+                                    y_offset = (self.height - current_frame.shape[0]) // 2
+
+                                    x_offset = (self.width - current_frame.shape[1]) // 2
+
+                                    self.overlay_image(frame, current_frame, y_offset, x_offset)
+
+                                    out.write(frame)
+
+                            current_time += duration * 1000
 
 
                     else:  # 일반 이미지
@@ -558,9 +600,9 @@ import os
 
 
 def main():
-    base_dir = r"C:\Users\ska00\Desktop\AutoMeme"
+    base_dir = r"C:\Users\ska0047\Desktop\AutoMeme"
 
-    # 숫자 폴더 찾기
+    # 숫자 폴더 찾기  
     folders = [f for f in os.listdir(base_dir) if f.isdigit()]
     folders.sort(key=int)
 
