@@ -600,7 +600,7 @@ import os
 
 
 def main():
-    base_dir = r"C:\Users\ska0047\Desktop\AutoMeme"
+    base_dir = "AutoMeme"
 
     # 숫자 폴더 찾기  
     folders = [f for f in os.listdir(base_dir) if f.isdigit()]

@@ -4,13 +4,24 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="webp gif로변환되게 수정">
+    <list default="true" id="1243b8a0-021a-4439-ba5b-a1ce38d031b8" name="변경" comment="링크">
       <change beforePath="$PROJECT_DIR$/.idea/AutoMeme.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/AutoMeme.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreateMovie.py" beforeDir="false" afterPath="$PROJECT_DIR$/CreateMovie.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/getData.py" beforeDir="false" afterPath="$PROJECT_DIR$/getData.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sum.py" beforeDir="false" afterPath="$PROJECT_DIR$/sum.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Aurora — Declan DP _ Free Background Music _ Audio Library Release.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Back To Party — Zackross _ Free Background Music _ Audio Library Release [lt1sHMCm_lM].mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Daydream  Johny Grimes  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Enjoy It  Land of Fire  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Home — Another Kid  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Mirage  gbry.svg  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Oxygen  Next Route  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Seaside  Thomas Gresen  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Snowglobe — Johny Grimes  Free Background Music  Audio Library Release.mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/Sunrise — Zackross _ Free Background Music _ Audio Library Release [NG2JrJnTbRc].mp3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/음악/background_music.mp3" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,12 +49,12 @@
     &quot;assignee&quot;: &quot;kevin0047&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/kevin0047/AutoMeme",
-    "accountId": "77ab3aa8-be8a-4c0a-9cdf-048dfeef744d"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/kevin0047/AutoMeme&quot;,
+    &quot;accountId&quot;: &quot;0aba3ac2-90dd-42cb-ba01-a5b972b53a9b&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
 }</component>
@@ -72,58 +83,10 @@
       <recent name="C:\Users\ska00\PycharmProjects\AutoMeme" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.CreateMovie">
-    <configuration name="CreateMovie" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
-      <module name="AutoMeme" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.10" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/CreateMovie.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="getData" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
-      <module name="AutoMeme" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.10" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/getData.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-98f27166c754-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.21829.153" />
+        <option value="bundled-python-sdk-fb887030ada0-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.21565.199" />
       </set>
     </attachedChunks>
   </component>

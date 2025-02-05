@@ -43,7 +43,7 @@ class DataCollectorGUI:
         path_frame = ttk.LabelFrame(root, text="저장 경로 설정", padding="10")
         path_frame.pack(fill="x", padx=10, pady=5)
 
-        self.save_path = tk.StringVar(value="C:/Users/ska0047/Desktop/AutoMeme")
+        self.save_path = tk.StringVar(value="AutoMeme")
         path_entry = ttk.Entry(path_frame, textvariable=self.save_path, width=50)
         path_entry.pack(side="left", padx=5)
 
@@ -355,6 +355,68 @@ class DataCollectorGUI:
 
         except Exception as e:
             self.update_status(f"WebP 변환 프로세스 중 오류 발생: {str(e)}")
+
+    def convert_gif_files(self):
+        try:
+            image_path = f"{self.save_path.get()}/Images"
+            gif_files = [f for f in os.listdir(image_path) if f.lower().endswith('.gif')]
+
+            if not gif_files:
+                return
+
+            self.update_status("GIF 파일 변환 시작...")
+            total_files = len(gif_files)
+
+            for index, gif_file in enumerate(gif_files, 1):
+                gif_path = os.path.join(image_path, gif_file)
+
+                try:
+                    # GIF 파일 로드
+                    gif = Image.open(gif_path)
+
+                    # 프레임 추출
+                    frames = []
+                    try:
+                        while True:
+                            # 각 프레임을 BGR 형식으로 변환
+                            frame = cv2.cvtColor(np.array(gif), cv2.COLOR_RGB2BGR)
+                            frames.append(frame)
+                            gif.seek(gif.tell() + 1)
+                    except EOFError:
+                        pass
+
+                    if frames:
+                        # 출력 파일명 설정
+                        base_name = os.path.splitext(gif_file)[0]
+                        output_path = os.path.join(image_path, f"{base_name}.mp4")
+
+                        # 비디오 생성
+                        height, width = frames[0].shape[:2]
+                        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                        # GIF의 기본 프레임 레이트를 20fps로 설정
+                        fps = 20
+                        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+                        for frame in frames:
+                            out.write(frame)
+                        out.release()
+
+                        # 원본 GIF 파일 삭제
+                        gif.close()
+                        os.remove(gif_path)
+
+                        self.progress['value'] = (index / total_files) * 100
+                        self.update_status(f"GIF 파일 변환 중... ({index}/{total_files})")
+                        self.root.update()
+
+                except Exception as e:
+                    self.update_status(f"파일 변환 중 오류 발생: {gif_file} - {str(e)}")
+                    continue
+
+            self.update_status("GIF 파일 변환 완료!")
+
+        except Exception as e:
+            self.update_status(f"GIF 변환 프로세스 중 오류 발생: {str(e)}")
     def split_text(self, text):
         if len(text) <= 40:
             return [text]
@@ -727,7 +789,7 @@ class DataCollectorGUI:
             return False
     def collect_data(self):
         try:
-            base_dir = "C:/Users/ska0047/Desktop/AutoMeme"  # 항상 기본 경로부터 시작
+            base_dir = "AutoMeme"  # 항상 기본 경로부터 시작
 
             # 다음 사용 가능한 폴더 번호 찾기
             folder_num = 1
@@ -879,6 +941,7 @@ class DataCollectorGUI:
             )
             self.download_images(self.url_entry.get())
             self.convert_webp_files()
+            self.convert_gif_files()
             self.generate_subtitles()
             self.generate_tts()
             self.progress['value'] = 100
