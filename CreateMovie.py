@@ -70,7 +70,6 @@ class VideoGenerator:
             return None, None, None
 
     def get_video_info(self, video_path):
-        """MP4 파일의 프레임과 재생 시간 정보를 반환"""
         try:
             cap = cv2.VideoCapture(video_path)
             frames = []
@@ -228,13 +227,24 @@ class VideoGenerator:
             self.overlay_image(frame, subtitle_img, current_y, subtitle_x_offset)
             current_y += subtitle_img.shape[0] + spacing
 
+    def find_all_sequence_images(self):
+        """Images 폴더의 모든 이미지/동영상 파일 찾기"""
+        try:
+            files = []
+            for filename in sorted(os.listdir(self.images_folder)):
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp')):
+                    files.append(os.path.join(self.images_folder, filename))
+            return files
+        except Exception as e:
+            print(f"이미지 검색 중 오류: {e}")
+            return []
+
     def create_video(self):
         """비디오 생성"""
         lines = self.read_text_file()
         if not lines:
             print("텍스트 파일이 비어있습니다.")
             return
-
 
         print("텍스트 파일 내용:")
         for i, line in enumerate(lines):
@@ -278,188 +288,183 @@ class VideoGenerator:
 
         current_time += int(title_duration * 1000)
 
-        # 기본 중앙 이미지 로드
-        first_image_path = self.find_first_sequence_image()
+        # 숫자로만 된 줄이 있는지 확인
+        has_sequence_number = any(self.is_sequence_number(line) for line in lines[1:])
         current_center_img = None
-        if first_image_path:
-            result = self.read_image_with_pil(first_image_path)
-            if result[3] == 'mp4':  # MP4 파일
 
-                frames, duration, original_fps, _ = result
+        if not has_sequence_number:
+            # 모든 시퀀스 이미지 먼저 표시
+            all_sequence_images = self.find_all_sequence_images()
+            for img_path in all_sequence_images:
+                result = self.read_image_with_pil(img_path)
 
-                if frames is not None and duration is not None and original_fps is not None:
+                if result[3] == 'mp4':  # MP4 파일 처리
+                    frames, duration, original_fps, _ = result
+                    if frames and duration and original_fps:
+                        total_frames_needed = int(duration * self.fps)
+                        frame_ratio = len(frames) / total_frames_needed
 
-                    frame_count = len(frames)
-
-                    frame_interval = original_fps / self.fps
-
-                    for frame_index in range(frame_count):
-
-                        if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
-
+                        for output_frame_idx in range(total_frames_needed):
+                            source_frame_idx = min(int(output_frame_idx * frame_ratio), len(frames) - 1)
                             frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-
-                            current_frame = self.resize_image(frames[frame_index])
+                            current_frame = self.resize_image(frames[source_frame_idx])
 
                             # 제목 표시
-
                             self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
 
                             # 비디오 프레임 표시
-
                             y_offset = (self.height - current_frame.shape[0]) // 2
-
                             x_offset = (self.width - current_frame.shape[1]) // 2
-
                             self.overlay_image(frame, current_frame, y_offset, x_offset)
 
                             out.write(frame)
 
-                    current_time += duration * 1000
-            else:  # 일반 이미지
-                current_center_img = result[0]
-                if current_center_img is not None:
-                    current_center_img = self.resize_image(current_center_img)
+                        current_time += duration * 1000
+                        current_center_img = self.resize_image(frames[-1])  # 마지막 프레임 저장
 
-                    for _ in range(int(self.fps * self.sequence_image_duration)):
-                        frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                        self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                else:  # 일반 이미지 처리
+                    img = result[0]
+                    if img is not None:
+                        img = self.resize_image(img)
+                        # 3초 동안 이미지 표시
+                        for _ in range(int(self.fps * 3.0)):
+                            frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                            self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                            y_offset = (self.height - img.shape[0]) // 2
+                            x_offset = (self.width - img.shape[1]) // 2
+                            self.overlay_image(frame, img, y_offset, x_offset)
+                            out.write(frame)
+                        current_time += 3000  # 3초
+                        current_center_img = img  # 현재 이미지 저장
+
+            # 이후 자막 처리
+            for i, line in enumerate(lines[1:], 2):
+                print(f"처리 중인 줄 {i}: {line}")
+                image_path = self.find_subtitle_image(subtitle_index)
+                print(f"자막 이미지 경로 (인덱스 {subtitle_index}): {image_path}")
+
+                subtitle_img = None
+                if image_path:
+                    subtitle_img = self.read_image_with_pil(image_path)[0]
+                    if subtitle_img is None:
+                        print(f"자막 이미지를 로드할 수 없습니다: {image_path}")
+                    else:
+                        self.current_subtitles.append((subtitle_img, subtitle_index))
+                        if len(self.current_subtitles) > 4:
+                            self.current_subtitles.pop(0)
+
+                tts_path = self.find_tts_file(subtitle_index)
+                print(f"TTS 파일 경로 (인덱스 {subtitle_index}): {tts_path}")
+
+                duration = self.get_wav_duration(tts_path) if tts_path else 3.0
+
+                if tts_path:
+                    audio = AudioSegment.from_wav(tts_path)
+                    silence_before = AudioSegment.silent(duration=current_time)
+                    audio_segments.append(silence_before + audio)
+
+                for _ in range(int(self.fps * duration)):
+                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                    if current_center_img is not None:
                         y_offset = (self.height - current_center_img.shape[0]) // 2
                         x_offset = (self.width - current_center_img.shape[1]) // 2
                         self.overlay_image(frame, current_center_img, y_offset, x_offset)
-                        out.write(frame)
+                    self.overlay_subtitles(frame, self.current_subtitles)
+                    out.write(frame)
 
-                    current_time += self.sequence_image_duration * 1000
+                current_time += int(duration * 1000)
+                subtitle_index += 1
 
-        # 나머지 내용 처리
-        for i, line in enumerate(lines[1:], 2):
-            print(f"처리 중인 줄 {i}: {line}")
+        else:
+            # 숫자가 있을 경우의 처리
+            all_sequence_images = self.find_all_sequence_images()
+            current_sequence_index = 0
 
-            # create_video 메서드 내부의 이미지 처리 부분
-            if self.is_sequence_number(line):
-                self.current_subtitles = []  # 자막 초기화
-                sequence_img_path = self.find_sequence_image(int(line))
-                print(f"시퀀스 이미지 경로: {sequence_img_path}")
+            for i, line in enumerate(lines[1:], 2):
+                print(f"처리 중인 줄 {i}: {line}")
 
-                # 다음 요소의 타입에 따라 지속시간 결정
-                next_element_type = self.get_next_element_type(lines, i - 1)
-                # 다음 요소가 이미지이거나 마지막 요소일 경우 3초
-                image_duration = 3.0 if (next_element_type == "image" or next_element_type == "last") else 1.0
+                if self.is_sequence_number(line):
+                    self.current_subtitles = []  # 자막 초기화
+                    sequence_img_path = self.find_sequence_image(int(line))
+                    print(f"시퀀스 이미지 경로: {sequence_img_path}")
 
-                if sequence_img_path:
-                    result = self.read_image_with_pil(sequence_img_path)
-                    if result[3] == 'mp4':  # MP4 파일
+                    next_element_type = self.get_next_element_type(lines, i - 1)
+                    image_duration = 3.0 if (next_element_type == "image" or next_element_type == "last") else 1.0
 
-                        frames, duration, original_fps, _ = result
+                    if sequence_img_path:
+                        result = self.read_image_with_pil(sequence_img_path)
+                        if result[3] == 'mp4':  # MP4 파일
+                            frames, duration, original_fps, _ = result
+                            if frames and duration and original_fps:
+                                total_frames_needed = int(duration * self.fps)
+                                frame_ratio = len(frames) / total_frames_needed
 
-                        if frames is not None and duration is not None and original_fps is not None:
-
-                            frame_count = len(frames)
-
-                            frame_interval = original_fps / self.fps
-
-                            for frame_index in range(frame_count):
-
-                                if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
-
+                                for output_frame_idx in range(total_frames_needed):
+                                    source_frame_idx = min(int(output_frame_idx * frame_ratio), len(frames) - 1)
                                     frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-
-                                    current_frame = self.resize_image(frames[frame_index])
-
-                                    # 제목 표시
+                                    current_frame = self.resize_image(frames[source_frame_idx])
 
                                     self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
 
-                                    # 비디오 프레임 표시
-
                                     y_offset = (self.height - current_frame.shape[0]) // 2
-
                                     x_offset = (self.width - current_frame.shape[1]) // 2
-
                                     self.overlay_image(frame, current_frame, y_offset, x_offset)
 
                                     out.write(frame)
 
-                            current_time += duration * 1000
+                                current_time += duration * 1000
+                                current_center_img = self.resize_image(frames[-1])
+                        else:  # 일반 이미지
+                            current_center_img = result[0]
+                            if current_center_img is not None:
+                                current_center_img = self.resize_image(current_center_img)
+                                for _ in range(int(self.fps * image_duration)):
+                                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                                    y_offset = (self.height - current_center_img.shape[0]) // 2
+                                    x_offset = (self.width - current_center_img.shape[1]) // 2
+                                    self.overlay_image(frame, current_center_img, y_offset, x_offset)
+                                    out.write(frame)
+                                current_time += image_duration * 1000
+                    continue
 
+                # 자막과 음성 처리
+                image_path = self.find_subtitle_image(subtitle_index)
+                print(f"자막 이미지 경로 (인덱스 {subtitle_index}): {image_path}")
 
-                    else:  # 일반 이미지
+                subtitle_img = None
+                if image_path:
+                    subtitle_img = self.read_image_with_pil(image_path)[0]
+                    if subtitle_img is None:
+                        print(f"자막 이미지를 로드할 수 없습니다: {image_path}")
+                    else:
+                        self.current_subtitles.append((subtitle_img, subtitle_index))
+                        if len(self.current_subtitles) > 4:
+                            self.current_subtitles.pop(0)
 
-                        current_center_img = result[0]
+                tts_path = self.find_tts_file(subtitle_index)
+                print(f"TTS 파일 경로 (인덱스 {subtitle_index}): {tts_path}")
 
-                        if current_center_img is not None:
+                duration = self.get_wav_duration(tts_path) if tts_path else 3.0
 
-                            current_center_img = self.resize_image(current_center_img)
+                if tts_path:
+                    audio = AudioSegment.from_wav(tts_path)
+                    silence_before = AudioSegment.silent(duration=current_time)
+                    audio_segments.append(silence_before + audio)
 
-                            for _ in range(int(self.fps * image_duration)):  # 수정된 지속시간 사용
+                for _ in range(int(self.fps * duration)):
+                    frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+                    self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
+                    if current_center_img is not None:
+                        y_offset = (self.height - current_center_img.shape[0]) // 2
+                        x_offset = (self.width - current_center_img.shape[1]) // 2
+                        self.overlay_image(frame, current_center_img, y_offset, x_offset)
+                    self.overlay_subtitles(frame, self.current_subtitles)
+                    out.write(frame)
 
-                                frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-
-                                self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-
-                                y_offset = (self.height - current_center_img.shape[0]) // 2
-
-                                x_offset = (self.width - current_center_img.shape[1]) // 2
-
-                                self.overlay_image(frame, current_center_img, y_offset, x_offset)
-
-                                out.write(frame)
-
-                            current_time += image_duration * 1000
-                continue
-
-            # 일반 자막과 음성 처리
-            image_path = self.find_subtitle_image(subtitle_index)
-            print(f"자막 이미지 경로 (인덱스 {subtitle_index}): {image_path}")
-
-            subtitle_img = None
-            if image_path:
-                subtitle_img = self.read_image_with_pil(image_path)[0]  # 첫 번째 요소만 사용
-                if subtitle_img is None:
-                    print(f"자막 이미지를 로드할 수 없습니다: {image_path}")
-                else:
-                    # 현재 자막 추가
-                    self.current_subtitles.append((subtitle_img, subtitle_index))
-                    # 최대 4줄 유지
-                    if len(self.current_subtitles) > 4:
-                        self.current_subtitles.pop(0)
-
-            tts_path = self.find_tts_file(subtitle_index)
-            print(f"TTS 파일 경로 (인덱스 {subtitle_index}): {tts_path}")
-
-            duration = self.get_wav_duration(tts_path) if tts_path else 3.0
-
-            if tts_path:
-                audio = AudioSegment.from_wav(tts_path)
-                silence_before = AudioSegment.silent(duration=current_time)
-                audio_segments.append(silence_before + audio)
-
-            for _ in range(int(self.fps * duration)):
-                frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                # 제목 표시
-                self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-                # 현재 중앙 이미지 표시
-                if current_center_img is not None:
-                    y_offset = (self.height - current_center_img.shape[0]) // 2
-                    x_offset = (self.width - current_center_img.shape[1]) // 2
-                    self.overlay_image(frame, current_center_img, y_offset, x_offset)
-
-                # 여러 줄의 자막 표시
-                total_height = sum(subtitle.shape[0] for subtitle, _ in self.current_subtitles)
-                spacing = 10  # 자막 간 간격
-                total_spacing = spacing * (len(self.current_subtitles) - 1)
-                start_y = self.height - total_height - total_spacing - 50
-
-                current_y = start_y
-                for subtitle, _ in self.current_subtitles:
-                    subtitle_x_offset = (self.width - subtitle.shape[1]) // 2
-                    self.overlay_image(frame, subtitle, current_y, subtitle_x_offset)
-                    current_y += subtitle.shape[0] + spacing
-
-                out.write(frame)
-
-            current_time += int(duration * 1000)
-            subtitle_index += 1
+                current_time += int(duration * 1000)
+                subtitle_index += 1
 
         out.release()
 
