@@ -155,7 +155,7 @@ class VideoGenerator:
         return text.strip().isdigit()
 
     def read_image_with_pil(self, image_path):
-        """PIL을 사용하여 이미지 읽기 (GIF, MP4 지원)"""
+        """PIL을 사용하여 이미지 읽기 (MP4 지원)"""
         try:
             if image_path is None:
                 print(f"이미지 경로가 None입니다.")
@@ -167,12 +167,9 @@ class VideoGenerator:
 
             # 파일 확장자 확인
             ext = os.path.splitext(image_path)[1].lower()
-            if ext == '.gif':
-                frames, durations, total_duration = self.get_gif_info(image_path)
-                return frames, durations, total_duration, 'gif'
-            elif ext == '.mp4':
+            if ext == '.mp4':
                 frames, duration, original_fps = self.get_video_info(image_path)
-                return frames, duration, original_fps, 'mp4'  # original_fps 추가
+                return frames, duration, original_fps, 'mp4'
             else:
                 pil_image = Image.open(image_path)
                 pil_image = pil_image.convert('RGBA')
@@ -286,36 +283,7 @@ class VideoGenerator:
         current_center_img = None
         if first_image_path:
             result = self.read_image_with_pil(first_image_path)
-            if result[3] == 'gif':
-                frames, durations, total_duration, _ = result
-                frame_index = 0
-                elapsed_time = 0
-
-                # GIF의 실제 FPS 계산
-                gif_fps = len(frames) / total_duration
-                frame_interval = gif_fps / self.fps
-
-                for frame_index in range(len(frames)):
-                    if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
-                        frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                        current_frame = self.resize_image(frames[frame_index])
-
-                        # 제목 표시
-                        self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-
-                        # GIF 프레임 표시
-                        y_offset = (self.height - current_frame.shape[0]) // 2
-                        x_offset = (self.width - current_frame.shape[1]) // 2
-                        self.overlay_image(frame, current_frame, y_offset, x_offset)
-
-                        out.write(frame)
-
-                current_time += total_duration * 1000
-
-
-
-
-            elif result[3] == 'mp4':  # MP4 파일
+            if result[3] == 'mp4':  # MP4 파일
 
                 frames, duration, original_fps, _ = result
 
@@ -380,37 +348,7 @@ class VideoGenerator:
 
                 if sequence_img_path:
                     result = self.read_image_with_pil(sequence_img_path)
-
-                    if result[3] == 'gif':
-                        frames, durations, total_duration, _ = result
-                        frame_index = 0
-                        elapsed_time = 0
-
-                        # GIF의 실제 FPS 계산
-                        gif_fps = len(frames) / total_duration
-                        frame_interval = gif_fps / self.fps
-
-                        for frame_index in range(len(frames)):
-                            if frame_index % frame_interval < 1:  # 원본 FPS에 맞춰 프레임 선택
-                                frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
-                                current_frame = self.resize_image(frames[frame_index])
-
-                                # 제목 표시
-                                self.overlay_image(frame, title_img, 50, (self.width - title_img.shape[1]) // 2)
-
-                                # GIF 프레임 표시
-                                y_offset = (self.height - current_frame.shape[0]) // 2
-                                x_offset = (self.width - current_frame.shape[1]) // 2
-                                self.overlay_image(frame, current_frame, y_offset, x_offset)
-
-                                out.write(frame)
-
-                        current_time += total_duration * 1000
-
-
-
-
-                    elif result[3] == 'mp4':  # MP4 파일
+                    if result[3] == 'mp4':  # MP4 파일
 
                         frames, duration, original_fps, _ = result
 

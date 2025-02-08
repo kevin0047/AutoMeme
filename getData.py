@@ -702,11 +702,7 @@ class DataCollectorGUI:
                         final_audio += chunk + AudioSegment.silent(duration=100)
                     final_audio += chunks[-1]
 
-                    # 마지막 문장인 경우 4초 무음 추가, 그 외에는 250ms 무음 추가
-                    if i == total_sentences:
-                        final_audio += AudioSegment.silent(duration=4000)  # 4초
-                    else:
-                        final_audio += AudioSegment.silent(duration=250)  # 250ms
+                    final_audio += AudioSegment.silent(duration=250)  # 모든 문장에 250ms 무음 추가
 
                 final_audio.export(final_filename, format="wav")
                 os.remove(temp_filename)  # Clean up temporary file
@@ -738,51 +734,48 @@ class DataCollectorGUI:
             with open(content_path, 'r', encoding='utf-8') as f:
                 lines = [line.strip() for line in f.readlines() if line.strip()]
 
-            # 한 줄(제목)만 있는 경우
-            if len(lines) == 1:
-                self.update_status("컨텐츠가 부족하여 더미 데이터를 추가합니다...")
+            self.update_status("더미 데이터를 추가합니다...")
 
-                # content.txt에 더미 라인 추가
-                with open(content_path, 'a', encoding='utf-8') as f:
-                    f.write("\n더미 텍스트\n")
+            # content.txt에 더미 라인 추가
+            with open(content_path, 'a', encoding='utf-8') as f:
+                f.write("\n더미 텍스트\n")
 
-                # recontent.txt에 더미 라인 추가
-                with open(recontent_path, 'a', encoding='utf-8') as f:
-                    f.write("\n더미 텍스트.\n")
+            # recontent.txt에 더미 라인 추가
+            with open(recontent_path, 'a', encoding='utf-8') as f:
+                f.write("\n더미 텍스트.\n")
 
-                # styled_content.txt 처리
-                styled_path = f"{self.save_path.get()}/txt/styled_content.txt"
-                try:
-                    with open(styled_path, 'r', encoding='utf-8') as f:
-                        styled_lines = f.readlines()
-                        if len(styled_lines) >= 2:
-                            title = styled_lines[0].strip()
-                            try:
-                                styled_data = json.loads(styled_lines[1].strip())
-                            except json.JSONDecodeError:
-                                styled_data = []
-                        else:
-                            title = lines[0]
+            # styled_content.txt 처리
+            styled_path = f"{self.save_path.get()}/txt/styled_content.txt"
+            try:
+                with open(styled_path, 'r', encoding='utf-8') as f:
+                    styled_lines = f.readlines()
+                    if len(styled_lines) >= 2:
+                        title = styled_lines[0].strip()
+                        try:
+                            styled_data = json.loads(styled_lines[1].strip())
+                        except json.JSONDecodeError:
                             styled_data = []
-                except FileNotFoundError:
-                    title = lines[0]
-                    styled_data = []
+                    else:
+                        title = lines[0]
+                        styled_data = []
+            except FileNotFoundError:
+                title = lines[0]
+                styled_data = []
 
-                # 더미 스타일 정보 추가 (1개만)
-                dummy_style = [{
-                    "text": "더미 텍스트",
-                    "color": "rgb(255,255,255)",
-                    "size": "60px",
-                    "weight": "400"
-                }]
-                styled_data.extend(dummy_style)
+            # 더미 스타일 정보 추가
+            dummy_style = [{
+                "text": "더미 텍스트",
+                "color": "rgb(255,255,255)",
+                "size": "60px",
+                "weight": "400"
+            }]
+            styled_data.extend(dummy_style)
 
-                # 업데이트된 스타일 정보 저장
-                with open(styled_path, 'w', encoding='utf-8') as f:
-                    f.write(f"{title}\n{json.dumps(styled_data, ensure_ascii=False)}")
+            # 업데이트된 스타일 정보 저장
+            with open(styled_path, 'w', encoding='utf-8') as f:
+                f.write(f"{title}\n{json.dumps(styled_data, ensure_ascii=False)}")
 
-                return True
-            return False
+            return True
 
         except Exception as e:
             self.update_status(f"더미 데이터 추가 중 오류 발생: {str(e)}")
