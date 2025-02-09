@@ -37,6 +37,32 @@ def get_audio_duration(audio_path):
         return 0
 
 
+def select_transition_video(transition_folder):
+    """전환 영상 선택"""
+    # 전환 영상 폴더의 모든 비디오 파일 찾기
+    video_files = [f for f in os.listdir(transition_folder) if f.endswith(('.mp4', '.avi', '.mov'))]
+
+    if not video_files:
+        print("전환 영상 폴더에 비디오 파일이 없습니다.")
+        return None
+
+    print("\n사용 가능한 전환 영상:")
+    for i, file in enumerate(video_files, 1):
+        print(f"{i}. {file}")
+
+    while True:
+        try:
+            choice = int(input("\n사용할 전환 영상 번호를 선택하세요: "))
+            if 1 <= choice <= len(video_files):
+                selected_video = os.path.join(transition_folder, video_files[choice - 1])
+                print(f"\n선택된 전환 영상: {video_files[choice - 1]}")
+                return selected_video
+            else:
+                print("올바른 번호를 선택해주세요.")
+        except ValueError:
+            print("숫자를 입력해주세요.")
+
+
 def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file):
     # 배경음악 파일 목록
     bgm_files = [f for f in os.listdir(bgm_folder) if f.endswith(('.mp3', '.wav', '.m4a'))]
@@ -76,7 +102,6 @@ def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file
 
         # 임시 출력 파일
         temp_output = f"temp_with_bgm_{folder}.mp4"
-
 
         # 배경음악 추가
         cmd = [
@@ -139,10 +164,16 @@ def merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file
                 os.remove(temp_file)
 
 
-# 사용 예시
-base_folder = "AutoMeme"
-output_file = "AutoMeme/final_merged.mp4"
-transition_video = "젠존제전환.mp4"
-bgm_folder = "음악"
+# 메인 실행 부분
+if __name__ == "__main__":
+    base_folder = "AutoMeme"
+    output_file = "AutoMeme/final_merged.mp4"
+    bgm_folder = "음악"
+    transition_folder = "전환영상"  # 전환 영상을 저장할 폴더
 
-merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file)
+    # 전환 영상 선택
+    transition_video = select_transition_video(transition_folder)
+    if transition_video:
+        merge_videos_with_bgm(base_folder, transition_video, bgm_folder, output_file)
+    else:
+        print("전환 영상 선택이 취소되었습니다.")

@@ -510,7 +510,7 @@ class DataCollectorGUI:
 
                 if line.startswith("더미 텍스트"):
                     width = 135
-                    height = 10
+                    height = 1
                     image = Image.new('RGB', (width, height), color=(255, 255, 255))
                     output_path = os.path.join(output_folder, f'subtitle_{subtitle_counter}_{line[:15]}.png')
                     image.save(output_path)
