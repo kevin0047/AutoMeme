@@ -545,32 +545,35 @@ import os
 def main():
     base_dir = "AutoMeme"
 
-    # 숫자 폴더 찾기  
-    folders = [f for f in os.listdir(base_dir) if f.isdigit()]
-    folders.sort(key=int)
+    # 한글 폴더들 찾기
+    korean_folders = [f for f in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, f))]
 
-    for folder in folders:
-        folder_path = os.path.join(base_dir, folder)
-        output_path = os.path.join(folder_path, "output.mp4")
+    for korean_folder in korean_folders:
+        korean_folder_path = os.path.join(base_dir, korean_folder)
 
-        # 이미 영상이 있으면 스킵
-        if os.path.exists(output_path):
-            print(f"폴더 {folder}의 영상이 이미 존재합니다. 스킵합니다.")
-            continue
+        # 숫자 폴더 찾기
+        number_folders = [f for f in os.listdir(korean_folder_path) if f.isdigit()]
+        number_folders.sort(key=int)
 
-        text_path = os.path.join(folder_path, "txt", "content.txt")
-        image_folder = os.path.join(folder_path, "voice")
+        for number_folder in number_folders:
+            folder_path = os.path.join(korean_folder_path, number_folder)
+            output_path = os.path.join(folder_path, "output.mp4")
 
-        try:
-            generator = VideoGenerator(text_path, image_folder, output_path)
-            generator.create_video()
-            generator.combine_videos()
-            print(f"폴더 {folder} 완료")
-        except Exception as e:
-            print(f"폴더 {folder} 처리 중 오류 발생: {e}")
+            # 이미 영상이 있으면 스킵
+            if os.path.exists(output_path):
+                print(f"폴더 {korean_folder}/{number_folder}의 영상이 이미 존재합니다. 스킵합니다.")
+                continue
 
+            text_path = os.path.join(folder_path, "txt", "content.txt")
+            image_folder = os.path.join(folder_path, "voice")
 
-
+            try:
+                generator = VideoGenerator(text_path, image_folder, output_path)
+                generator.create_video()
+                generator.combine_videos()
+                print(f"폴더 {korean_folder}/{number_folder} 완료")
+            except Exception as e:
+                print(f"폴더 {korean_folder}/{number_folder} 처리 중 오류 발생: {e}")
 
 
 if __name__ == "__main__":

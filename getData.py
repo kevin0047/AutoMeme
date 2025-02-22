@@ -54,26 +54,69 @@ class DataCollectorGUI:
         self.status_text = tk.Text(status_frame, height=10, width=50)
         self.status_text.pack(padx=5, pady=5)
 
+        # 진행 상황 프레임
+        progress_frame = ttk.Frame(root)
+        progress_frame.pack(fill="x", padx=10, pady=5)
+
+        # URL 처리 현황 레이블
+        self.progress_label = ttk.Label(progress_frame, text="처리된 URL: 0/0")
+        self.progress_label.pack(side="top", pady=5)
+
         # 진행바
-        self.progress = ttk.Progressbar(root, length=400, mode='determinate')
-        self.progress.pack(pady=10)
+        self.progress = ttk.Progressbar(progress_frame, length=400, mode='determinate')
+        self.progress.pack(side="top", pady=5)
 
         # 실행 버튼
         self.start_button = ttk.Button(root, text="수집 시작", command=self.start_collection)
         self.start_button.pack(pady=10)
 
+        '''# URL 처리 현황을 저장할 변수 추가
+        self.current_url = 0
+        self.total_urls = 0'''
+
     def select_url_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
-        if file_path:
+        file_paths = filedialog.askopenfilenames(filetypes=[("Text files", "*.txt")])
+        if not file_paths:
+            return
+
+        # 전체 URL 수 계산
+        total_urls = 0
+        url_list = []  # 모든 URL을 저장할 리스트
+
+        for file_path in file_paths:
             with open(file_path, 'r') as f:
                 urls = [url.strip() for url in f.readlines() if url.strip()]
+                file_name = os.path.splitext(os.path.basename(file_path))[0]
+                url_list.extend([(file_name, url) for url in urls])
+                total_urls += len(urls)
 
-            for url in urls:
+        current_url = 0
+
+        # 전체 URL 수 표시
+        self.update_status(f"\n총 처리할 URL 수: {total_urls}")
+
+        for file_name, url in url_list:
+            try:
+                current_url += 1
+                base_dir = os.path.join("AutoMeme", file_name)
+                os.makedirs(base_dir, exist_ok=True)
+
                 self.url_entry.delete(0, tk.END)
                 self.url_entry.insert(0, url)
-                self.collect_data()  # start_collection() 대신 직접 collect_data() 호출
-                time.sleep(5)  # 각 작업 사이 간격 늘림
+                self.save_path.set(base_dir)
 
+                # 진행상황 업데이트
+                self.update_status(f"\n처리 중: {current_url}/{total_urls}")
+                self.progress['value'] = (current_url / total_urls) * 100
+                self.root.update()
+
+                self.collect_data()
+                time.sleep(5)
+
+            except Exception as e:
+                self.update_status(f"URL 처리 중 오류 발생: {str(e)}")
+
+        self.update_status(f"\n모든 URL 처리 완료! ({total_urls}/{total_urls})")
     def update_status(self, message):
         def _update():
             self.status_text.insert(tk.END, f"{message}\n")
@@ -90,7 +133,7 @@ class DataCollectorGUI:
             return
 
         self.start_button.config(state="disabled")
-        self.progress['value'] = 0
+
         Thread(target=self.collect_data).start()
 
     def clean_and_process_text(self, content_path):
@@ -262,8 +305,7 @@ class DataCollectorGUI:
                         with open(path, "wb") as file:
                             file.write(response.content)
 
-                    # 프로그레스바 업데이트
-                    self.progress['value'] = (index / total_images) * 90
+
 
                 except Exception as e:
                     self.update_status(f"이미지 다운로드 중 오류 발생: {str(e)}")
@@ -273,8 +315,8 @@ class DataCollectorGUI:
         except Exception as e:
             self.update_status(f"오류 발생: {str(e)}")
 
-        finally:
-            self.progress['value'] = 90  # 프로그레스바 업데이트
+
+
 
     def convert_webp_files(self):
         try:
@@ -343,7 +385,7 @@ class DataCollectorGUI:
                     img.close()
                     os.remove(webp_path)
 
-                    self.progress['value'] = (index / total_files) * 100
+
                     self.update_status(f"WebP 파일 변환 중... ({index}/{total_files})")
                     self.root.update()
 
@@ -405,7 +447,7 @@ class DataCollectorGUI:
                         gif.close()
                         os.remove(gif_path)
 
-                        self.progress['value'] = (index / total_files) * 100
+
                         self.update_status(f"GIF 파일 변환 중... ({index}/{total_files})")
                         self.root.update()
 
@@ -576,7 +618,7 @@ class DataCollectorGUI:
                 image.save(output_path)
 
                 subtitle_counter += 1
-                self.progress['value'] = (subtitle_counter / total_lines) * 100
+
                 self.update_status(f"자막 생성 중... ({subtitle_counter}/{total_lines})")
                 self.root.update()
 
@@ -588,7 +630,6 @@ class DataCollectorGUI:
 
     def generate_tts(self):
         try:
-            # Define input and output paths
             input_file = f"{self.save_path.get()}/txt/recontent.txt"
             output_folder = f"{self.save_path.get()}/voice"
 
@@ -596,23 +637,35 @@ class DataCollectorGUI:
                 messagebox.showerror("오류", "recontent.txt 파일을 찾을 수 없습니다.")
                 return
 
-            # Create output directory if it doesn't exist
             os.makedirs(output_folder, exist_ok=True)
 
-            # Initialize Chrome driver
             options = webdriver.ChromeOptions()
             driver = webdriver.Chrome(options=options)
             driver.get('https://papago.naver.com/?sk=ko&tk=en')
 
-            # Read sentences from recontent.txt
             with open(input_file, 'r', encoding='utf-8') as file:
                 sentences = file.read().split('\n')
 
-            # Initialize PyAudio
+            # PyAudio 초기화
             p = pyaudio.PyAudio()
-            time.sleep(3)  # Wait for page to load
 
-            # Audio recording parameters
+            # VB-Cable 입력 장치 찾기
+            vb_cable_index = None
+            for i in range(p.get_device_count()):
+                device_info = p.get_device_info_by_index(i)
+                if 'CABLE Output' in device_info['name']:
+                    vb_cable_index = i
+                    break
+
+            if vb_cable_index is None:
+                messagebox.showerror("오류", "VB-Cable을 찾을 수 없습니다. VB-Cable이 설치되어 있는지 확인해주세요.")
+                driver.quit()
+                p.terminate()
+                return
+
+            time.sleep(3)
+
+            # 오디오 녹음 파라미터
             CHUNK = 1024
             FORMAT = pyaudio.paInt16
             CHANNELS = 2
@@ -628,38 +681,34 @@ class DataCollectorGUI:
                     continue
 
                 if sentence.startswith("더미 텍스트"):
-                    # 3초 무음 파일 생성
                     silent_audio = AudioSegment.silent(duration=3000)
                     final_filename = os.path.join(output_folder, f"tts{i}_dummy.wav")
                     silent_audio.export(final_filename, format="wav")
 
                     current_sentence += 1
-                    self.progress['value'] = (current_sentence / total_sentences) * 100
                     self.update_status(f"TTS 생성 중... ({current_sentence}/{total_sentences})")
                     self.root.update()
                     continue
 
-                # Find and clear input box
                 input_box = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, '//*[@id="txtSource"]')))
                 input_box.clear()
                 input_box.send_keys(sentence)
                 time.sleep(2)
 
-                # Calculate recording duration
                 RECORD_SECONDS = len(sentence) / CHARS_PER_SECOND + ADDITIONAL_DELAY
                 frames = []
 
-                # Click TTS button
-                button = driver.find_element(By.XPATH, '//*[@id="btn-toolbar-source"]/span[1]')
-                button.click()
-
-                # Record audio
+                # VB-Cable을 통한 녹음 스트림 설정
                 stream = p.open(format=FORMAT,
                                 channels=CHANNELS,
                                 rate=RATE,
                                 input=True,
+                                input_device_index=vb_cable_index,
                                 frames_per_buffer=CHUNK)
+
+                button = driver.find_element(By.XPATH, '//*[@id="btn-toolbar-source"]/span[1]')
+                button.click()
 
                 for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
                     data = stream.read(CHUNK)
@@ -668,16 +717,13 @@ class DataCollectorGUI:
                 stream.stop_stream()
                 stream.close()
 
-                # Clean sentence for filename
                 cleaned_sentence = ''.join(e for e in sentence if e.isalnum())
                 if len(cleaned_sentence) > 15:
                     cleaned_sentence = cleaned_sentence[:15]
 
-                # Save audio files
                 temp_filename = os.path.join(output_folder, f"temp_tts{i}_{cleaned_sentence}.wav")
                 final_filename = os.path.join(output_folder, f"tts{i}_{cleaned_sentence}.wav")
 
-                # Write temporary WAV file
                 wf = wave.open(temp_filename, 'wb')
                 wf.setnchannels(CHANNELS)
                 wf.setsampwidth(p.get_sample_size(FORMAT))
@@ -685,14 +731,12 @@ class DataCollectorGUI:
                 wf.writeframes(b''.join(frames))
                 wf.close()
 
-                # Process audio (remove silence)
                 sound = AudioSegment.from_wav(temp_filename)
                 chunks = split_on_silence(sound,
                                           min_silence_len=500,
                                           silence_thresh=-40
                                           )
 
-                # 완전한 무음인 경우 3초 무음으로 처리
                 if not chunks:
                     final_audio = AudioSegment.silent(duration=3000)
                     self.update_status(f"{i}번 문장이 무음으로 감지되어 3초 무음으로 대체되었습니다.")
@@ -701,14 +745,12 @@ class DataCollectorGUI:
                     for chunk in chunks[:-1]:
                         final_audio += chunk + AudioSegment.silent(duration=100)
                     final_audio += chunks[-1]
-
-                    final_audio += AudioSegment.silent(duration=250)  # 모든 문장에 250ms 무음 추가
+                    final_audio += AudioSegment.silent(duration=250)
 
                 final_audio.export(final_filename, format="wav")
-                os.remove(temp_filename)  # Clean up temporary file
+                os.remove(temp_filename)
 
                 current_sentence += 1
-                self.progress['value'] = (current_sentence / total_sentences) * 100
                 self.update_status(f"TTS 생성 중... ({current_sentence}/{total_sentences})")
                 self.root.update()
 
@@ -780,15 +822,15 @@ class DataCollectorGUI:
         except Exception as e:
             self.update_status(f"더미 데이터 추가 중 오류 발생: {str(e)}")
             return False
+
     def collect_data(self):
         try:
-            base_dir = "AutoMeme"  # 항상 기본 경로부터 시작
+            base_dir = self.save_path.get()  # 현재 설정된 기본 경로 사용
 
             # 다음 사용 가능한 폴더 번호 찾기
             folder_num = 1
             while os.path.exists(os.path.join(base_dir, str(folder_num))):
                 folder_num += 1
-
 
             # 새 폴더 생성
             current_folder = os.path.join(base_dir, str(folder_num))
@@ -812,14 +854,14 @@ class DataCollectorGUI:
 
             self.update_status("페이지 로딩 중...")
             driver.get(self.url_entry.get())
-            self.progress['value'] = 20
+
 
             # 제목 추출
             title_ = driver.find_element(By.XPATH,
                                          '//*[@id="container"]/section/article[2]/div[1]/header/div/h3/span[2]')
             title = title_.text
             self.update_status(f"제목 추출: {title}")
-            self.progress['value'] = 40
+
 
             # 내용 추출
             element = driver.find_element(By.XPATH, '//div[@class="write_div"]')
@@ -849,7 +891,7 @@ class DataCollectorGUI:
             # 스타일 정보가 포함된 텍스트 저장
             with open(os.path.join(txt_path, "styled_content.txt"), 'w', encoding='utf-8') as f:
                 f.write(f"{title}\n{styled_content}\n")
-            self.progress['value'] = 60
+
 
             # 댓글 추출 및 처리
             self.update_status("댓글 추출 중...")
@@ -885,7 +927,7 @@ class DataCollectorGUI:
                     comment_text.append(clean_comment + "\n")
                     is_first_comment = False
 
-            self.progress['value'] = 80
+
 
             # 파일 저장
             self.update_status("파일 저장 중...")
@@ -937,7 +979,7 @@ class DataCollectorGUI:
             self.convert_gif_files()
             self.generate_subtitles()
             self.generate_tts()
-            self.progress['value'] = 100
+
 
             winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
             self.update_status("작업 완료!")
