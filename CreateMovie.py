@@ -253,7 +253,7 @@ class VideoGenerator:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(self.temp_video_path, fourcc, self.fps, (self.width, self.height))
 
-        audio_segments = []
+        audio_timeline = []  # audio_segments 대신 audio_timeline 사용
         current_time = 0
         subtitle_index = 1  # 자막 인덱스 별도 관리
         self.current_subtitles = []  # 현재 표시중인 자막 리스트
@@ -275,8 +275,7 @@ class VideoGenerator:
 
         if title_tts_path:
             title_audio = AudioSegment.from_wav(title_tts_path)
-            silence_before = AudioSegment.silent(duration=current_time)
-            audio_segments.append(silence_before + title_audio)
+            audio_timeline.append((title_audio, current_time))  # (오디오, 시작시간) 튜플로 저장
 
         # 제목 프레임 생성
         for _ in range(int(self.fps * title_duration)):
@@ -360,8 +359,7 @@ class VideoGenerator:
 
                 if tts_path:
                     audio = AudioSegment.from_wav(tts_path)
-                    silence_before = AudioSegment.silent(duration=current_time)
-                    audio_segments.append(silence_before + audio)
+                    audio_timeline.append((audio, current_time))  # (오디오, 시작시간) 튜플로 저장
 
                 for _ in range(int(self.fps * duration)):
                     frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
@@ -450,8 +448,7 @@ class VideoGenerator:
 
                 if tts_path:
                     audio = AudioSegment.from_wav(tts_path)
-                    silence_before = AudioSegment.silent(duration=current_time)
-                    audio_segments.append(silence_before + audio)
+                    audio_timeline.append((audio, current_time))  # (오디오, 시작시간) 튜플로 저장
 
                 for _ in range(int(self.fps * duration)):
                     frame = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
@@ -469,11 +466,16 @@ class VideoGenerator:
         out.release()
 
         # 오디오 처리 및 비디오 합성
-        if audio_segments:
-            max_length = max(segment.duration_seconds for segment in audio_segments) * 1000
-            final_audio = AudioSegment.silent(duration=int(max_length))
-            for segment in audio_segments:
-                final_audio = final_audio.overlay(segment, position=0)
+        if audio_timeline:
+            # 전체 길이 계산
+            total_duration = max(start_time + audio.duration_seconds * 1000
+                                 for audio, start_time in audio_timeline)
+            final_audio = AudioSegment.silent(duration=int(total_duration))
+
+            # 각 오디오를 정확한 시간에 배치
+            for audio, start_time in audio_timeline:
+                final_audio = final_audio.overlay(audio, position=int(start_time))
+
             final_audio.export(self.temp_audio_path, format="wav", parameters=["-ac", "2", "-ar", "44100"])
 
         try:
