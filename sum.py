@@ -116,7 +116,7 @@ def merge_videos_with_bgm(base_folder, transition_folder, bgm_folder):
                 '-i', video_path,
                 '-i', bgm_file,
                 '-filter_complex',
-                f'[1:a]atrim=start={start_time}:duration={video_duration},volume=0.05[bgm];[0:a][bgm]amix=duration=first:dropout_transition=0',
+                f'[0:a]volume=0.5[orig];[1:a]atrim=start={start_time},aloop=loop=-1:size={int(video_duration * 44100)},atrim=duration={video_duration},volume=0.05[bgm];[orig][bgm]amix=duration=first:dropout_transition=0:normalize=0',
                 '-c:v', 'copy',
                 '-shortest',
                 temp_output
