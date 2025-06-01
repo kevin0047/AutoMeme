@@ -37,14 +37,31 @@ def get_audio_duration(audio_path):
         return 0
 
 
-def get_matching_transition_video(transition_folder, folder_name):
-    """폴더명과 일치하는 전환 영상 찾기"""
-    for ext in ['.mp4', '.avi', '.mov']:
-        transition_path = os.path.join(transition_folder, folder_name + ext)
-        if os.path.exists(transition_path):
-            return transition_path
-    print(f"경고: {folder_name}에 대한 전환 영상을 찾을 수 없습니다.")
-    return None
+def get_random_transition_video(transition_folder, folder_name):
+    """폴더명과 일치하는 폴더에서 랜덤한 전환 영상 선택"""
+    transition_subfolder = os.path.join(transition_folder, folder_name)
+
+    if not os.path.exists(transition_subfolder):
+        print(f"경고: {folder_name} 전환영상 폴더를 찾을 수 없습니다.")
+        return None
+
+    # 지원하는 비디오 확장자
+    video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+
+    # 폴더 내 모든 비디오 파일 찾기
+    video_files = []
+    for file in os.listdir(transition_subfolder):
+        if any(file.lower().endswith(ext) for ext in video_extensions):
+            video_files.append(os.path.join(transition_subfolder, file))
+
+    if not video_files:
+        print(f"경고: {folder_name} 폴더에서 전환 영상을 찾을 수 없습니다.")
+        return None
+
+    # 랜덤하게 선택
+    selected_video = random.choice(video_files)
+    print(f"{folder_name} 폴더에서 선택된 전환영상: {os.path.basename(selected_video)}")
+    return selected_video
 
 
 def merge_videos_with_bgm(base_folder, transition_folder, bgm_folder):
@@ -61,11 +78,6 @@ def merge_videos_with_bgm(base_folder, transition_folder, bgm_folder):
             continue
 
         print(f"\n처리 중인 폴더: {korean_folder}")
-
-        # 해당 폴더명과 일치하는 전환 영상 찾기
-        transition_video = get_matching_transition_video(transition_folder, korean_folder)
-        if not transition_video:
-            continue
 
         # 각 한글 폴더별 processed_videos 리스트 초기화
         processed_videos = []
@@ -114,12 +126,16 @@ def merge_videos_with_bgm(base_folder, transition_folder, bgm_folder):
 
         # 각 한글 폴더별로 개별 병합 진행
         if processed_videos:
-            # 전환 영상 포함하여 최종 목록 생성
+            # 전환 영상들을 포함하여 최종 목록 생성 (각 전환마다 랜덤 선택)
             final_video_list = []
             for i, video in enumerate(processed_videos):
                 final_video_list.append(video)
                 if i < len(processed_videos) - 1:  # 마지막이 아니면 전환 영상 추가
-                    final_video_list.append(transition_video)
+                    transition_video = get_random_transition_video(transition_folder, korean_folder)
+                    if transition_video:
+                        final_video_list.append(transition_video)
+                    else:
+                        print(f"경고: {korean_folder}에 대한 전환 영상을 찾을 수 없어 건너뜁니다.")
 
             # 임시 TS 파일 생성
             temp_ts_files = []
@@ -163,7 +179,6 @@ def merge_videos_with_bgm(base_folder, transition_folder, bgm_folder):
 
 
 # 메인 실행 부분
-# 메인 실행 부분 수정
 if __name__ == "__main__":
     base_folder = "AutoMeme"
     bgm_folder = "음악"
