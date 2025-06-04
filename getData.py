@@ -949,7 +949,10 @@ class DataCollectorGUI:
             try:
                 comment_file = os.path.join(txt_path, "comment.txt")
                 video_output = os.path.join(current_folder, "output_comments.mp4")
-                generator = CommentVideoGenerator()
+
+                # 현재 폴더명 추출 (한글 폴더명)
+                korean_folder_name = os.path.basename(base_dir)
+                generator = CommentVideoGenerator(folder_name=korean_folder_name)
 
                 with open(comment_file, 'r', encoding='utf-8') as f:
                     comments = f.readlines()
